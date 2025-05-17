@@ -1,0 +1,29 @@
+#!/bin/sh
+# shellcheck disable=SC2317   # silence code unreachability warnings
+# vim: set ft=sh ts=4 sw=4 noet ai tw=79:
+# shellcheck disable=SC3040   # allow pipefail option usage in POSIX sh
+set -eu; (set -o pipefail) 2>/dev/null && set -o pipefail
+# Self-relocate within the path of this script:
+readonly ORIGINALPWD="${PWD:?}"; cd "${0%"${0##*/}"}."
+# Find repository root and load cmdstash:
+__is_repo_root__() {
+	[ -e README.md ] && [ -f cmdsta.sh ]
+}
+REPOSITORY_ROOT="$(set '' ''; cd .; while [ "$2" != / ]; do __is_repo_root__ &&
+{ echo "${1:-.}"; exit 0; }; set "$1${1:+/}.." "$PWD"; cd ..; done; echo >&2 \
+"$0: could not determine REPOSITORY_ROOT by looking up parent dirs"; exit 1)"
+[ -d "${REPOSITORY_ROOT:?}" ] || exit 1; readonly REPOSITORY_ROOT
+CMDSTASH_ORIGINALPWD="$ORIGINALPWD"
+. "$REPOSITORY_ROOT/cmdsta.sh"
+##########################################################################
+### COMMANDS BELOW (do NOT edit this line: it is expected by cmdstash) ###
+##########################################################################
+
+# Handy commands defined elsewhere 
+CMD chain ch -- "$CMDSTASH_CHAIN_USAGE"
+
+# Just a silly command to expose how cmdstash works
+CMD helloworld hw -- 'say hello world'
+helloworld() {
+	echo 'Hello world!'
+}
