@@ -2,8 +2,8 @@
 # shellcheck disable=SC2317   # silence code unreachability warnings
 # vim: set ft=sh ts=4 sw=4 noet ai tw=79:
 
-# cmdstash: A POSIX shell & sed micro-library to wrap shell scripted commands
-# More information on: <https://github.com/nclsgd/cmdstash>
+# cmdstash: a POSIX shell & sed micro-library to create handy shell script
+#           command wrappers   <https://github.com/nclsgd/cmdstash>
 # SPDX-License-Identifier: 0BSD
 # Copyright (C) 2025 Nicolas Godinho <nicolas@godinho.me>
 
