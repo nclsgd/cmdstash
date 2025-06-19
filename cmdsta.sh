@@ -31,7 +31,7 @@ __CMD__() {
 		     ___v="$1"; shift ;;
 		-[f]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
 		--)  break ;;
-		-*)  die "CMD: unknown option $___o" ;;
+		-?*) die "CMD: unknown option ${___o%"${___o#??}"}" ;;
 		*)   set -- "$___o" "$@"; break ;;
 	esac; done; unset ___o
 	[ "${1+x}" ] || die "CMD: missing name"
@@ -107,7 +107,7 @@ chain() {
 		     ___d="$1"; ___v=x; shift ;;
 		-[d]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
 		--)  break ;;
-		-*)  die "misused: unknown option $___o" ;;
+		-?*) die "misused: unknown option ${___o%"${___o#??}"}" ;;
 		*)   set -- "$___o" "$@"; break ;;
 	esac; done; unset ___o
 	[ "${1+x}" ] || die "no commands given"
@@ -201,7 +201,7 @@ while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 	-h) usage; exit "$?" ;;
 	-[xh]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 	--)  break ;;
-	-*)  die "CMD: unknown option $___o" ;;
+	-?*) die "unknown option ${___o%"${___o#??}"}" ;;
 	*)   set -- "$___o" "$@"; break ;;
 esac; done; unset ___o
 [ "${1+x}" ] || { usage>&2||:;exit 1; }
