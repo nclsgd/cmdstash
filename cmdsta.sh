@@ -161,18 +161,22 @@ usage:  $1 [-x] COMMAND [ARG...]  invoke the command  [-x enables xtrace]
 
 # Core logic follows:
 : "${CMDSTASH_ORIGINALPWD:="${PWD:?}"}"
+readonly CMDSTASH_ORIGINALPWD
+
 CMDSTASH_ARGZERO="${0:?}"
 # Handle zsh pure mode where $0 would be the cmdstash file and not the source:
 if [ "${ZSH_ARGZERO:-}" ] && [ "$(PATH='' emulate 2>/dev/null)" = zsh ]; then
 	CMDSTASH_ARGZERO="$ZSH_ARGZERO"
 fi
+readonly CMDSTASH_ARGZERO
+
 CMDSTASH_SHELL="$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
 CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")"
 case "$CMDSTASH_SHELL" in
 	'') die "\$0 does not seem to be a shell script file: $CMDSTASH_ARGZERO";;
 	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*) die "\$0 has an unexpected shebang: $CMDSTASH_SHELL";;
 esac
-readonly CMDSTASH_ARGZERO CMDSTASH_ORIGINALPWD CMDSTASH_SHELL
+readonly CMDSTASH_SHELL
 
 __self__="$CMDSTASH_ARGZERO"
 __COMMANDS__=''
