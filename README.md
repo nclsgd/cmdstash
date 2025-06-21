@@ -3,7 +3,7 @@
 # _cmdstash_
 
 **_the command stash_**  
-a POSIX shell & sed micro-library to create handy shell script command wrappers
+a portable and embeddable shell script micro-framework to create handy command wrappers
 
 ---
 
