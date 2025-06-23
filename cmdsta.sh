@@ -66,8 +66,7 @@ invoke() {
 	# shellcheck disable=SC2046  # word splitting is OK here
 	(cd "${CMDSTASH_ORIGINALPWD:?}" &&\
 		exec ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" \
-		$(case "$-" in *x*) printf '%s' '-x';; esac) \
-		"$@")
+		${CMDSTASH_OPTS?} "$@")
 }
 
 # Function to invoke another command from within the cmdstash script:
@@ -231,6 +230,9 @@ while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 	*)   set -- "$___o" "$@"; break ;;
 esac; done; unset ___o
 [ "${1+x}" ] || { usage>&2||:;exit 1; }
+
+CMDSTASH_OPTS="${___x:+-x}"
+readonly CMDSTASH_OPTS
 
 CMDFUNC="$(
 case "$1" in
