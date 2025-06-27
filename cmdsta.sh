@@ -69,50 +69,6 @@ invoke() {
 		${CMDSTASH_OPTS?} "$@")
 }
 
-# Function to invoke another command from within the cmdstash script:
-# WARNING: This may have unexpected behavior if misused, please read below!
-#
-#     ** IMPORTANT NOTICE **
-#   Invoking cmdstash commands with this function MUST **NOT** be done
-#   within a conditional command compound construct (whether direct or
-#   somehow nested in function calls). Conditional command compound
-#   constructs impede the errexit shell option (i.e. `set -e') behavior.
-#   As a consequence invoking a command that relies on the errexit shell
-#   option to catch errors with this `_invokewithin' function and within
-#   a conditional command compound WILL cause the invoked command to
-#   misbehave and MAY cause harmful bugs.
-#
-#   If you still want to use this function for performance reasons but
-#   still want to catch failure of the invoked command, you may use it
-#   as such:
-#
-#       set +e; _invokewithin <cmd> [cmdargs...]; cmdrc="$?"; set -e
-#
-#   `cmdrc' will then hold the return code of the invoked command for
-#   you to handle.  Obvisouly this must not be done nested in another
-#   parent conditional command compound construct.
-#
-#   Please use this function with caution or prefer the always safer
-#   `invoke' function defined above in case of doubt or if you do not
-#   understand the implications of the conditional command compounds
-#   on the errexit shell option behavior.
-#
-_invokewithin() {
-	[ "${1+x}" ] || die "_invokewithin: missing command"
-	( CMDFUNC="$(case "$1" in
-		''|-*|*[!a-zA-Z0-9_.:@+-]*)
-			die "_invokewithin: invalid command name: $1";;
-		*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')" || die;;
-		*) ___v="$1" || die;;
-	esac; printf '%s\n' "$__COMMANDS__" | sed -n \
-'/^#/d; /^\t/d; /^$/d; s/$/ /;'"/ $___v /"'{s/^\([^ ]*\).*/\1/p;q;}')" || die
-	CMD="$1" || die; shift || die
-	[ "$CMDFUNC" ] || die "_invokewithin: unknown command: $CMD"
-	__self__="$CMDSTASH_ARGZERO $CMD" || die
-	set -e || die
-	"$CMDFUNC" "$@" )
-}
-
 # Chain cmdstash commands:
 # shellcheck disable=SC2034  # unused variable to be used by downstream
 CMDSTASH_CHAIN_USAGE="\
@@ -207,7 +163,7 @@ unset ABOUT
 if [ "$(eval 2>/dev/null \
        'f(){ echo 1;};readonly>&2 -f f||:;f(){ echo 2;}||:;f||:')" = 1 ]; then
 	# shellcheck disable=SC3045  # `readonly -f' support is validated above
-	readonly -f say die trim quote invoke _invokewithin chain usage
+	readonly -f say die trim quote invoke chain usage
 fi
 
 eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" \
