@@ -60,13 +60,29 @@ $___v"  # no leading whitespace here!
 $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"; fi
 }
 
-# Function to invoke another command from within the cmdstash script:
+# Invoke another command from the cmdstash script (potentially wrapped by a
+# function or command provided with the `-w' option):
 invoke() {
+	___x=''  # wrapper function or command
+	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
+		-w)  [ "${1+x}" ] || die "invoke: missing wrapper function or command"
+		     [ ! "$___x" ] || die "invoke: cannot define wrapper twice"
+		     ___x="$1"; shift ;;
+		-[w]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
+		--)  break ;;
+		-?*) die "invoke: unknown option ${___o%"${___o#??}"}" ;;
+		*)   set -- "$___o" "$@"; break ;;
+	esac; done; unset ___o
 	[ "${1+x}" ] || die "invoke: missing command"
-	# shellcheck disable=SC2046  # word splitting is OK here
-	(cd "${CMDSTASH_ORIGINALPWD:?}" &&\
-		exec ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" \
-		${CMDSTASH_OPTS?} "$@")
+	if [ "$___x" ]; then
+		eval "$___x /bin/sh -c 'cd \"\$0\" && exec \"\$@\"' \
+\"\${CMDSTASH_ORIGINALPWD:?}\" \
+\${CMDSTASH_SHELL:?} \"\${CMDSTASH_ARGZERO:?}\" \${CMDSTASH_OPTS?} -- \"\$@\""
+	else
+		# shellcheck disable=SC2086  # word splitting is expected here
+		(cd "${CMDSTASH_ORIGINALPWD:?}" && exec ${CMDSTASH_SHELL:?} \
+			"${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} -- "$@")
+	fi
 }
 
 # Chain cmdstash commands:
@@ -91,7 +107,7 @@ chain() {
 	# Without command delimiter defined:
 	if [ ! "$___v" ]; then
 		while [ "${1+x}" ]; do
-			invoke "$1" || die "command returned $?: $1"
+			invoke -- "$1" || die "command returned $?: $1"
 			shift
 		done
 		return 0
@@ -106,7 +122,7 @@ chain() {
 				while [ "$1" -le "$2" ]; do
 				# shellcheck disable=SC2016
 				printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
-				eval "invoke$___v || die \"command returned \$?:\"$___v"
+				eval "invoke --$___v || die \"command returned \$?:\"$___v"
 			fi
 			___i="$((___j+1))"
 		fi
@@ -117,7 +133,7 @@ chain() {
 		while [ "$1" -le "$2" ]; do
 		# shellcheck disable=SC2016
 		printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
-		eval "invoke$___v || die \"command returned \$?:\"$___v"
+		eval "invoke --$___v || die \"command returned \$?:\"$___v"
 	fi
 	unset ___v
 }
