@@ -63,26 +63,31 @@ $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"; fi
 # Invoke another command from the cmdstash script (potentially wrapped by a
 # function or command provided with the `-w' option):
 invoke() {
-	___x=''  # wrapper function or command
+	___v=''  # wrapper function or command
+	___x=''  # whether to pass -x again
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-w)  [ "${1+x}" ] || die "invoke: missing wrapper function or command"
-		     [ ! "$___x" ] || die "invoke: cannot define wrapper twice"
-		     ___x="$1"; shift ;;
+		     [ ! "$___v" ] || die "invoke: cannot define wrapper twice"
+		     ___v="$1"; shift ;;
+		-x)  ___x=x ;;
 		-[w]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
+		-[x]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 		--)  break ;;
 		-?*) die "invoke: unknown option ${___o%"${___o#??}"}" ;;
 		*)   set -- "$___o" "$@"; break ;;
 	esac; done; unset ___o
 	[ "${1+x}" ] || die "invoke: missing command"
-	if [ "$___x" ]; then
-		eval "$___x /bin/sh -c 'cd \"\$0\" && exec \"\$@\"' \
+	if [ "$___v" ]; then
+		eval "$___v /bin/sh -c 'cd \"\$0\" && exec \"\$@\"' \
 \"\${CMDSTASH_ORIGINALPWD:?}\" \
-\${CMDSTASH_SHELL:?} \"\${CMDSTASH_ARGZERO:?}\" \${CMDSTASH_OPTS?} -- \"\$@\""
+\${CMDSTASH_SHELL:?} \"\${CMDSTASH_ARGZERO:?}\" \
+\${CMDSTASH_OPTS?} ${___x:+-x} -- \"\$@\""
 	else
 		# shellcheck disable=SC2086  # word splitting is expected here
 		(cd "${CMDSTASH_ORIGINALPWD:?}" && exec ${CMDSTASH_SHELL:?} \
-			"${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} -- "$@")
+			"${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} ${___x:+-x} -- "$@")
 	fi
+	unset ___v ___x
 }
 
 # Chain cmdstash commands:
