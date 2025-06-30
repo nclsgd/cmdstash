@@ -24,7 +24,7 @@ quote() { while [ "${1+x}" ]; do printf '|%s|' "$1" | sed \
 
 CMD() { __CMD__ "$@"; }
 __CMD__() {
-	___v=''
+	___v=''  # function name behind the command
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-f)  [ "${1+x}" ] || die "CMD: missing function name"
 		     [ ! "$___v" ] || die "CMD: cannot define function twice"
@@ -41,7 +41,7 @@ __CMD__() {
 	esac
 	__COMMANDS__="${__COMMANDS__:-"# cmdstash commands definition table, DO NOT EDIT!"}
 $___v"  # no leading whitespace here!
-	unset ___v
+	unset ___v  # reused for the command name (sanitized for sed)
 	while [ "${1+x}" ]; do
 		case "$1" in
 			--) shift; break ;;
@@ -93,7 +93,8 @@ invoke commands sequentially
                          delimiter argument to allow using
                          arguments on chained commands"
 chain() {
-	___d=''; ___v=''
+	___d=''  # the delimiter value
+	___v=''  # is the delimiter defined?
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-d)  [ "${1+x}" ] || die "misused: missing delimiter"
 		     [ ! "$___v" ] || die "misused: cannot define delimiter twice"
@@ -192,7 +193,7 @@ case "$-" in *u*);; *) die "nounset option (set -u) was disabled";; esac
 readonly __COMMANDS__
 unset -f CMD __CMD__
 
-___x=''
+___x=''  # xtrace option
 while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 	-x) ___x=x ;;
 	-h) usage; exit "$?" ;;
