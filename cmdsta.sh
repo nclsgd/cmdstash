@@ -141,7 +141,7 @@ chain() {
 		printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
 		eval "invoke --$___v || die \"command returned \$?:\"$___v"
 	fi
-	unset ___v
+	unset ___d ___v ___i ___j ___x
 }
 
 # Help and usage description listing all the available cmdstash commands:
