@@ -172,8 +172,9 @@ readonly CMDSTASH_ARGZERO
 CMDSTASH_SHELL="$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
 CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")"
 case "$CMDSTASH_SHELL" in
-	'') die "\$0 does not seem to be a shell script file: $CMDSTASH_ARGZERO";;
-	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*) die "\$0 has an unexpected shebang: $CMDSTASH_SHELL";;
+	'') die "cmdstash: \$0 does not begin with a shebang: $CMDSTASH_ARGZERO";;
+	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*)
+		die "cmdstash: read an unexpected shebang: $CMDSTASH_SHELL";;
 esac
 readonly CMDSTASH_SHELL
 
@@ -192,8 +193,8 @@ eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" \
 '1,/^###.* COMMANDS BELOW .*###$/d')"
 
 # Ensure that errexit and nounset options are still enabled after the eval:
-case "$-" in *e*);; *) die "errexit option (set -e) was disabled";; esac
-case "$-" in *u*);; *) die "nounset option (set -u) was disabled";; esac
+case "$-" in *e*);; *) die "cmdstash: errexit option (set -e) was disabled";; esac
+case "$-" in *u*);; *) die "cmdstash: nounset option (set -u) was disabled";; esac
 
 readonly __COMMANDS__
 unset -f CMD __CMD__
@@ -204,7 +205,7 @@ while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 	-h) usage; exit "$?" ;;
 	-[xh]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 	--)  break ;;
-	-?*) die "unknown option ${___o%"${___o#??}"}" ;;
+	-?*) die "cmdstash: unknown option ${___o%"${___o#??}"}" ;;
 	*)   set -- "$___o" "$@"; break ;;
 esac; done; unset ___o
 [ "${1+x}" ] || { usage>&2||:;exit 1; }
