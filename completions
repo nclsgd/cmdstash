@@ -5,10 +5,8 @@
 # Copyright (C) 2025 Nicolas Godinho <nicolas@godinho.me>
 
 # Expects a Bash interactive shell with BASH_SOURCE array defined as expected:
-if [ ! "${BASH_SOURCE:-}" ] ||
-   ! eval '[[ -f "${BASH_SOURCE[0]:-}" ]]' 2>/dev/null ||
-   ! eval '[[ "${-//[!i]/}" = i ]]' 2>/dev/null
-then
+if [ ! "${BASH_SOURCE:-}" ] || ! eval 2>/dev/null '[[ -f "${BASH_SOURCE[0]:-}"
+&& "${-//[!i]/}" = i ]]'; then
 	printf '%s\n' >&2 \
 		"$0: this file is expected to be sourced from a Bash interactive shell"
 	# shellcheck disable=SC2317
@@ -18,5 +16,10 @@ fi
 eval "$(cd "${BASH_SOURCE[0]%"${BASH_SOURCE[0]##*/}"}." && sed -n < cmdsta.sh \
 '/^###.* BEGIN BASH COMPLETION .*###$/,/^###.* END BASH COMPLETION .*###$/p')"
 
-# The list of cmdstash scripts in this repository:
-_cmdstash_complete  example
+# Restore completion state prior to any previous cmdstash completions define
+_cmdstash_remove_completions
+
+# Auto-complete all the cmdstash scripts in this repository
+# (do not prepend any slash in the script names):
+_cmdstash_complete \
+	example
