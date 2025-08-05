@@ -241,23 +241,13 @@ exit "$?"
 # shellcheck disable=SC3044  # mapfile is Bash
 # shellcheck disable=SC3054  # arrays are Bash
 __cmdstash_scripts_completion() {
-	# For some shell keyword, complete with commands:
-	case "${COMP_WORDS[0]:-}" in
-		'') return 1;; # should not happen
-		*/*) ;; # proceed
-		*)  # fallback to original completion
-			local _c; for _c in "${__cmdstash_origcompfuncs[@]}"; do
-				case "$_c" in
-					"- ${COMP_WORDS[0]}") return 0;;
-					*" ${COMP_WORDS[0]}") "${_c%% *}" "$@"; return "$?";;
-				esac
-			done
-	esac
-
 	# Bail out if command is not a shell script with the expected boundary line
 	local _script="${COMP_WORDS[0]}"
-	[[ -f "$_script" && -x "$_script" && "$(sed '/^!#.*sh/p;q' < "$_script")" &&
-		"$(sed '/^###.* COMMANDS BELOW .*###$/!d' < "$_script")" ]] || return 1
+	if ! [[ -f "$_script" && -x "$_script" && "$_script" =~ .+/.+ &&
+	        -n "$(sed '/^#!/p;q' < "$_script")" &&
+	        -n "$(sed '/^###.* COMMANDS BELOW .*###$/!d' < "$_script")" ]]; then
+		return 1
+	fi
 
 	local __cmds
 	__cmds="$(_CMDSTASH_COMPLETION=bash "$_script" -h 2>/dev/null | sed \
@@ -272,19 +262,9 @@ __cmdstash_scripts_completion() {
 # shellcheck disable=SC3044  # complete is Bash
 # shellcheck disable=SC3054  # arrays are Bash
 _cmdstash_complete() {
-	local _e _c _i; for _c; do
+	local _c; for _c; do
 		[[ "$_c" =~ ^[a-zA-Z0-9_\.\+\-]+$ ]] || continue
-		_e="$(complete -p -- "$_c" 2>/dev/null)"
-		if [[ "$_e" ]]; then
-			_f="${_e#"complete -F "}"; _f="${_f%" $_c"}"
-			if ! [[ "$_e" = "complete -F $_f $_c" && "$_f" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
-				echo >&2 "cmdstash completions: clobbering completion for command: $_c"
-			elif [[ "$_f" != __cmdstash_scripts_completion ]]; then
-				__cmdstash_origcompfuncs+=( "$_f $_c" )
-			fi
-		else
-			__cmdstash_origcompfuncs+=( "- $_c" )
-		fi
+		__cmdstash_completions+=("$_c")
 		complete -F __cmdstash_scripts_completion -- "$_c"
 	done
 }
@@ -296,15 +276,10 @@ _cmdstash_complete() {
 # shellcheck disable=SC3044  # complete is Bash
 # shellcheck disable=SC3054  # arrays are Bash
 _cmdstash_remove_completions() {
-	local _c _f; for _c in "${__cmdstash_origcompfuncs[@]}"; do
-		_f="${_c%% *}"
-		if [[ "$_f" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
-			complete -F "$_f" -- "${_c#"$_f "}"
-		elif [[ "$_f" = '-' ]]; then
-			complete -r -- "${_c#"$_f "}"
-		fi
+	local _c; for _c in "${__cmdstash_completions[@]}"; do
+		complete -r -- "$_c"
 	done
-	unset __cmdstash_origcompfuncs
+	unset __cmdstash_completions
 }
 
 ### END BASH COMPLETION ###

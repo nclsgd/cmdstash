@@ -19,7 +19,6 @@ eval "$(cd "${BASH_SOURCE[0]%"${BASH_SOURCE[0]##*/}"}." && sed -n < cmdsta.sh \
 # Restore completion state prior to any previous cmdstash completions define
 _cmdstash_remove_completions
 
-# Auto-complete all the cmdstash scripts in this repository
-# (do not prepend any slash in the script names):
+# Auto-complete all the cmdstash scripts (basenames only)
 _cmdstash_complete \
 	example
