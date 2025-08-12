@@ -257,16 +257,20 @@ __cmdstash_scripts_completion() {
 }
 
 # shellcheck disable=SC3010  # [[ is Bash
-# shellcheck disable=SC3015  # =~ regex matching is Bash
 # shellcheck disable=SC3024,SC3030  # arrays are Bash
 # shellcheck disable=SC3043  # local keyword is Bash
 # shellcheck disable=SC3044  # complete is Bash
 # shellcheck disable=SC3054  # arrays are Bash
 _cmdstash_complete() {
 	local _c; for _c; do
-		[[ "$_c" =~ ^[a-zA-Z0-9_\.\+\-]+$ ]] || continue
-		__cmdstash_completions+=("$_c")
-		complete -F __cmdstash_scripts_completion -- "$_c"
+		case "$_c" in
+			''|*[!a-zA-Z0-9_.+-]*)
+				echo >&2 "_cmdstash_complete:" \
+					"skipping unsupported script basename: $_c" ||: ;;
+			*)
+				__cmdstash_completions+=("$_c")
+				complete -F __cmdstash_scripts_completion -- "$_c" "./$_c" ;;
+		esac
 	done
 }
 
@@ -276,7 +280,7 @@ _cmdstash_complete() {
 # shellcheck disable=SC3044  # complete is Bash
 _cmdstash_remove_completions() {
 	local _c; for _c in "${__cmdstash_completions[@]}"; do
-		complete -r -- "$_c"
+		complete -r -- "$_c" "./$_c"
 	done
 	unset __cmdstash_completions
 }

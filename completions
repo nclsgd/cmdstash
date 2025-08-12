@@ -21,4 +21,4 @@ _cmdstash_remove_completions
 
 # Auto-complete all the cmdstash scripts (basenames only)
 _cmdstash_complete \
-	example
+	simple locationindep
