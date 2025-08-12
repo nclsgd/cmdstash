@@ -1,5 +1,5 @@
 # shellcheck shell=sh
-# shellcheck disable=SC2317   # silence code unreachability warnings
+# shellcheck disable=SC2317,SC2329   # silence code unreachability warnings
 # vim: set ft=sh ts=4 sw=4 noet ai tw=79:
 
 # cmdstash: a portable and embeddable shell script micro-framework to create
@@ -237,6 +237,7 @@ exit "$?"
 
 # shellcheck disable=SC3010  # [[ is Bash
 # shellcheck disable=SC3011  # here-strings are Bash
+# shellcheck disable=SC3015  # =~ regex matching is Bash
 # shellcheck disable=SC3043  # local keyword is Bash
 # shellcheck disable=SC3044  # mapfile is Bash
 # shellcheck disable=SC3054  # arrays are Bash
@@ -256,8 +257,8 @@ __cmdstash_scripts_completion() {
 }
 
 # shellcheck disable=SC3010  # [[ is Bash
-# shellcheck disable=SC3024  # arrays are Bash
-# shellcheck disable=SC3030  # arrays are Bash
+# shellcheck disable=SC3015  # =~ regex matching is Bash
+# shellcheck disable=SC3024,SC3030  # arrays are Bash
 # shellcheck disable=SC3043  # local keyword is Bash
 # shellcheck disable=SC3044  # complete is Bash
 # shellcheck disable=SC3054  # arrays are Bash
@@ -270,11 +271,9 @@ _cmdstash_complete() {
 }
 
 # shellcheck disable=SC3010  # [[ is Bash
-# shellcheck disable=SC3024  # arrays are Bash
-# shellcheck disable=SC3030  # arrays are Bash
+# shellcheck disable=SC3024,SC3030,SC3054  # arrays are Bash
 # shellcheck disable=SC3043  # local keyword is Bash
 # shellcheck disable=SC3044  # complete is Bash
-# shellcheck disable=SC3054  # arrays are Bash
 _cmdstash_remove_completions() {
 	local _c; for _c in "${__cmdstash_completions[@]}"; do
 		complete -r -- "$_c"
