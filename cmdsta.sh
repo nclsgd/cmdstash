@@ -37,7 +37,10 @@ __CMD__() {
 	[ "${1+x}" ] || die "CMD: missing name"
 	: "${___v:="$1"}"
 	case "$___v" in
-		''|[0-9]*|*[!a-zA-Z0-9_]*) die "CMD: illegal function name: $___v";;
+		''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: illegal command name: $1";;
+		[!a-zA-Z_]*|*[!a-zA-Z0-9_]*)
+			[ "$(eval 2>/dev/null "$___v(){ echo K;}&& $___v")" = K ] || die \
+				"CMD: valid command name but illegal function name: $___v"
 	esac
 	__COMMANDS__="${__COMMANDS__:-"# cmdstash commands definition table, DO NOT EDIT!"}
 $___v"  # no leading whitespace here!
@@ -45,7 +48,7 @@ $___v"  # no leading whitespace here!
 	while [ "${1+x}" ]; do
 		case "$1" in
 			--) shift; break ;;
-			''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: invalid command name: $1";;
+			''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: illegal command name: $1";;
 			*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')" ;;
 			*) ___v="$1" ;;
 		esac
@@ -215,7 +218,7 @@ readonly CMDSTASH_OPTS
 
 CMDFUNC="$(
 case "$1" in
-	''|-*|*[!a-zA-Z0-9_.:@+-]*) die "invalid command name: $1";;
+	''|-*|*[!a-zA-Z0-9_.:@+-]*) die "illegal command name: $1";;
 	*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')";;
 	*) ___v="$1";;
 esac
