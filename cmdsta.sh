@@ -242,7 +242,7 @@ exit "$?"
 # shellcheck disable=SC3011  # here-strings are Bash
 # shellcheck disable=SC3015  # =~ regex matching is Bash
 # shellcheck disable=SC3043  # local keyword is Bash
-# shellcheck disable=SC3044  # mapfile is Bash
+# shellcheck disable=SC3044  # mapfile and compgen are Bash
 # shellcheck disable=SC3054  # arrays are Bash
 __cmdstash_scripts_completion() {
 	# Bail out if command is not a shell script with the expected boundary line
@@ -254,12 +254,13 @@ __cmdstash_scripts_completion() {
 	fi
 
 	case "${COMP_WORDS[COMP_CWORD]}" in
-		/*|./*|../*) compgen -V COMPREPLY -f -- "${COMP_WORDS[COMP_CWORD]}";;
+		/*|./*|../*) mapfile -t COMPREPLY <<<"$(compgen -f \
+			-- "${COMP_WORDS[COMP_CWORD]}")";;
 		*)	local __cmds
 			__cmds="$(_CMDSTASH_COMPLETION=bash "$_script" -h 2>/dev/null | sed \
 '1,/^commands:$/d; /^$/,$d; /^    */d; s/, /\n/g; s/   *(/\n/; s/)$//; s/^  //;')"
-			[ "$__cmds" ] && compgen -V COMPREPLY -W "-h $__cmds" \
-				-- "${COMP_WORDS[COMP_CWORD]}"
+			[[ "$__cmds" ]] && mapfile -t COMPREPLY <<<"$(compgen \
+				-W "-h $__cmds" -- "${COMP_WORDS[COMP_CWORD]}")"
 	esac
 }
 
