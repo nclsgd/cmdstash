@@ -253,10 +253,14 @@ __cmdstash_scripts_completion() {
 		return 1
 	fi
 
-	local __cmds
-	__cmds="$(_CMDSTASH_COMPLETION=bash "$_script" -h 2>/dev/null | sed \
+	case "${COMP_WORDS[COMP_CWORD]}" in
+		/*|./*|../*) compgen -V COMPREPLY -f -- "${COMP_WORDS[COMP_CWORD]}";;
+		*)	local __cmds
+			__cmds="$(_CMDSTASH_COMPLETION=bash "$_script" -h 2>/dev/null | sed \
 '1,/^commands:$/d; /^$/,$d; /^    */d; s/, /\n/g; s/   *(/\n/; s/)$//; s/^  //;')"
-	compgen -V COMPREPLY -W "-h $__cmds" -- "${COMP_WORDS[COMP_CWORD]}"
+			[ "$__cmds" ] && compgen -V COMPREPLY -W "-h $__cmds" \
+				-- "${COMP_WORDS[COMP_CWORD]}"
+	esac
 }
 
 # shellcheck disable=SC3010  # [[ is Bash
