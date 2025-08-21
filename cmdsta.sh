@@ -66,12 +66,12 @@ $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"; fi
 # Invoke another command from the cmdstash script (potentially wrapped by a
 # function or command provided with the `-w' option):
 invoke() {
-	___v=''  # wrapper function or command
+	___w=''  # wrapper function or command
 	___x=''  # whether to pass -x again
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-w)  [ "${1+x}" ] || die "invoke: missing wrapper function or command"
-		     [ ! "$___v" ] || die "invoke: cannot define wrapper twice"
-		     ___v="$1"; shift ;;
+		     [ ! "$___w" ] || die "invoke: cannot define wrapper twice"
+		     ___w="$1"; shift ;;
 		-x)  ___x=x ;;
 		-[w]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
 		-[x]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
@@ -80,17 +80,19 @@ invoke() {
 		*)   set -- "$___o" "$@"; break ;;
 	esac; done; unset ___o
 	[ "${1+x}" ] || die "invoke: missing command"
-	if [ "$___v" ]; then
-		eval "$___v /bin/sh -c 'cd \"\$0\" && exec \"\$@\"' \
-\"\${CMDSTASH_ORIGINALPWD:?}\" \
-\${CMDSTASH_SHELL:?} \"\${CMDSTASH_ARGZERO:?}\" \
-\${CMDSTASH_OPTS?} ${___x:+-x} -- \"\$@\""
+	if [ "$___w" ]; then
+		# shellcheck disable=SC2086  # word splitting is expected here
+		set -- "$___w /bin/sh -c \"cd $(quote "${CMDSTASH_ORIGINALPWD:?}") && \
+exec $(quote ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
+${___x:+-x} -- "$@")\""
 	else
 		# shellcheck disable=SC2086  # word splitting is expected here
-		(cd "${CMDSTASH_ORIGINALPWD:?}" && exec ${CMDSTASH_SHELL:?} \
-			"${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} ${___x:+-x} -- "$@")
+		set -- "(cd $(quote "${CMDSTASH_ORIGINALPWD:?}") && \
+exec $(quote ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
+${___x:+-x} -- "$@"))"
 	fi
-	unset ___v ___x
+	unset ___w ___x
+	eval "$1"
 }
 
 # Chain cmdstash commands:
@@ -102,11 +104,11 @@ invoke commands sequentially
                          arguments on chained commands"
 chain() {
 	___d=''  # the delimiter value
-	___v=''  # is the delimiter defined?
+	___D=''  # is the delimiter defined?
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-d)  [ "${1+x}" ] || die "misused: missing delimiter"
-		     [ ! "$___v" ] || die "misused: cannot define delimiter twice"
-		     ___d="$1"; ___v=x; shift ;;
+		     [ ! "$___D" ] || die "misused: cannot define delimiter twice"
+		     ___d="$1"; ___D=x; shift ;;
 		-[d]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
 		--)  break ;;
 		-?*) die "misused: unknown option ${___o%"${___o#??}"}" ;;
@@ -114,37 +116,37 @@ chain() {
 	esac; done; unset ___o
 	[ "${1+x}" ] || die "no commands given"
 	# Without command delimiter defined:
-	if [ ! "$___v" ]; then
+	if [ ! "$___D" ]; then
 		while [ "${1+x}" ]; do
 			invoke -- "$1" || die "command returned $?: $1"
 			shift
 		done
-		return 0
+		unset ___d ___D; return 0
 	fi
 	# With command delimiter defined:
-	___i=1; ___j=1; ___x=''; ___v=''
+	___i=1; ___j=1; ___k=''; ___l=''
 	while [ "$___j" -le "$#" ]; do
-		eval "___x=\"\${$___j}\""
-		if [ "$___x" = "$___d" ]; then
+		eval "___k=\"\${$___j}\""
+		if [ "$___k" = "$___d" ]; then
 			if [ "$___i" != "$___j" ]; then
-				___v="$(set -- "$___i" "$((___j-1))"
+				___l="$(set -- "$___i" "$((___j-1))"
 				while [ "$1" -le "$2" ]; do
 				# shellcheck disable=SC2016
 				printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
-				eval "invoke --$___v || die \"command returned \$?:\"$___v"
+				eval "invoke --$___l || die \"command returned \$?:\"$___l"
 			fi
 			___i="$((___j+1))"
 		fi
 		___j="$((___j+1))"
 	done
 	if [ "$___i" != "$___j" ]; then
-		___v="$(set -- "$___i" "$((___j-1))"
+		___l="$(set -- "$___i" "$((___j-1))"
 		while [ "$1" -le "$2" ]; do
 		# shellcheck disable=SC2016
 		printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
-		eval "invoke --$___v || die \"command returned \$?:\"$___v"
+		eval "invoke --$___l || die \"command returned \$?:\"$___l"
 	fi
-	unset ___d ___v ___i ___j ___x
+	unset ___d ___D ___i ___j ___k ___l
 }
 
 # Help and usage description listing all the available cmdstash commands:
