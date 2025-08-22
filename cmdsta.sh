@@ -82,17 +82,19 @@ invoke() {
 	[ "${1+x}" ] || die "invoke: missing command"
 	if [ "$___w" ]; then
 		# shellcheck disable=SC2086  # word splitting is expected here
-		set -- "$___w /bin/sh -c \"cd $(quote "${CMDSTASH_ORIGINALPWD:?}") && \
-exec $(quote ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
-${___x:+-x} -- "$@")\""
+		set -- $___w /bin/sh -c 'cd "$0" && exec "$@"' \
+"${CMDSTASH_ORIGINALPWD:?}" \
+${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
+${___x:+-x} -- "$@"
+		unset ___w ___x
+		"$@"
 	else
 		# shellcheck disable=SC2086  # word splitting is expected here
-		set -- "(cd $(quote "${CMDSTASH_ORIGINALPWD:?}") && \
-exec $(quote ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
-${___x:+-x} -- "$@"))"
+		set -- ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
+${___x:+-x} -- "$@"
+		unset ___w ___x
+		( cd "${CMDSTASH_ORIGINALPWD:?}" && exec "$@" )
 	fi
-	unset ___w ___x
-	eval "$1"
 }
 
 # Chain cmdstash commands:
