@@ -8,7 +8,7 @@ CMDSTASH_ORIGINALPWD="${PWD:?}"
 cd "${0%"${0##*/}"}."
 # Find project base dir and load cmdstash from there:
 PROJECT_BASEDIR="$(set '' ''; cd .; while [ "$2" != / ]; do
-[ -f ._project_basedir_ ] && { echo "${1:-.}"; exit 0; }
+[ -f .projectbasedir ] && { echo "${1:-.}"; exit 0; }
 set "$1${1:+/}.." "$PWD"; cd ..; done; echo >&2 \
 "$0: could not determine PROJECT_BASEDIR by looking up parent dirs"; exit 1)"
 readonly PROJECT_BASEDIR
