@@ -280,7 +280,7 @@ __cmdstash_scripts_completion() {
 			-- "${COMP_WORDS[COMP_CWORD]}")";;
 		*)	local __cmds
 			__cmds="$(_CMDSTASH_COMPLETION=bash "$_script" -h 2>/dev/null | sed \
-'1,/^commands:$/d; /^$/,$d; /^    */d; s/, /\n/g; s/   *(/\n/; s/)$//; s/^  //;')"
+'1,/^commands:$/d; /^$/,$d; /^    */d; s/, .*//; s/^ *//;')"
 			[[ "$__cmds" ]] && mapfile -t COMPREPLY <<<"$(compgen \
 				-W "-h $__cmds" -- "${COMP_WORDS[COMP_CWORD]}")"
 	esac
