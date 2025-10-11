@@ -103,15 +103,23 @@ CMDSTASH_CHAIN_USAGE="\
 invoke commands sequentially
   args:  [-d DELIMITER]  specify a (cautiously chosen) special
                          delimiter argument to allow using
-                         arguments on chained commands"
+                         arguments on chained commands
+         [-v]    be verbose and print the invoked commands
+         [-x]    enable xtrace on chain commands (implies -v)
+"
 chain() {
 	___d=''  # the delimiter value
 	___D=''  # is the delimiter defined?
+	___v=''  # verbosity
+	___X=''  # xtrace on invoked commands
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-d)  [ "${1+x}" ] || die "misused: missing delimiter"
 		     [ ! "$___D" ] || die "misused: cannot define delimiter twice"
 		     ___d="$1"; ___D=x; shift ;;
+		-v)  ___v=x;;
+		-x)  ___X=x; ___v=x;;
 		-[d]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
+		-[vx]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 		--)  break ;;
 		-?*) die "misused: unknown option ${___o%"${___o#??}"}" ;;
 		*)   set -- "$___o" "$@"; break ;;
@@ -120,10 +128,11 @@ chain() {
 	# Without command delimiter defined:
 	if [ ! "$___D" ]; then
 		while [ "${1+x}" ]; do
-			invoke -- "$1" || die "command returned $?: $1"
+			[ "$___v" ] && say "invoking command: $1"
+			invoke ${___X:+-x} -- "$1" || die "command returned $?: $1"
 			shift
 		done
-		unset ___d ___D; return 0
+		unset ___d ___D ___v ___X; return 0
 	fi
 	# With command delimiter defined:
 	___i=1; ___j=1; ___k=''; ___l=''
@@ -135,7 +144,8 @@ chain() {
 				while [ "$1" -le "$2" ]; do
 				# shellcheck disable=SC2016
 				printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
-				eval "invoke --$___l || die \"command returned \$?:\"$___l"
+				[ "$___v" ] && eval "say \"invoking command:\"$___l"
+				eval "invoke ${___X:+-x} --$___l || die \"command returned \$?:\"$___l"
 			fi
 			___i="$((___j+1))"
 		fi
@@ -146,9 +156,10 @@ chain() {
 		while [ "$1" -le "$2" ]; do
 		# shellcheck disable=SC2016
 		printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
-		eval "invoke --$___l || die \"command returned \$?:\"$___l"
+		[ "$___v" ] && eval "say \"invoking command:\"$___l"
+		eval "invoke ${___X:+-x} --$___l || die \"command returned \$?:\"$___l"
 	fi
-	unset ___d ___D ___i ___j ___k ___l
+	unset ___d ___D ___v ___X ___i ___j ___k ___l
 }
 
 # Help and usage description listing all the available cmdstash commands:
