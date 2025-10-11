@@ -214,6 +214,13 @@ eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" \
 case "$-" in *e*);; *) die "cmdstash: errexit option (set -e) was disabled";; esac
 case "$-" in *u*);; *) die "cmdstash: nounset option (set -u) was disabled";; esac
 
+# Expose the chain command if there are more than two commands defined:
+case "$(printf '%s\n' "$__COMMANDS__" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
+	''|0|1);;
+	*) [ "${CMDSTASH_NO_CHAIN_CMD:-0}" = 0 ] &&\
+		CMD chain ${CMDSTASH_CHAIN_ALIAS:-} -- "$CMDSTASH_CHAIN_USAGE";;
+esac
+
 readonly __COMMANDS__
 unset -f CMD __CMD__
 

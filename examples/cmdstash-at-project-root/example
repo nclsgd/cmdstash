@@ -15,9 +15,6 @@ readonly PROJECT_BASEDIR
 . "${PROJECT_BASEDIR:?}/cmdsta.sh"
 ### COMMANDS BELOW (do NOT edit this line: it is expected by cmdstash) ###
 
-# Handy commands defined elsewhere (`chain' is from cmdstash itself):
-CMD chain ch -- "$CMDSTASH_CHAIN_USAGE"
-
 # Just a silly command to expose how cmdstash works
 CMD helloworld hw -- 'say hello world'
 helloworld() {
