@@ -238,19 +238,19 @@ esac; done; unset ___o
 CMDSTASH_OPTS="${___x:+-x}"
 readonly CMDSTASH_OPTS
 
-CMDFUNC="$(
+___c="$(
 case "$1" in
 	''|-*|*[!a-zA-Z0-9_.:@+-]*) die "illegal command name: $1";;
 	*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')";;
 	*) ___v="$1";;
 esac
-printf '%s\n' "$__COMMANDS__" | sed -n \
-'/^#/d; /^\t/d; /^$/d; s/$/ /;'"/ $___v /"'{s/^\([^ ]*\).*/\1/p;q;}'
-)"
-CMD="$1"
-shift
-[ "$CMDFUNC" ] || die "unknown command: $CMD"
-__self__="$__self__ $CMD"
+printf '%s\n' "$__COMMANDS__" | sed --posix -n \
+'/^#/d; /^\t/d; /^$/d; s/$/ /;'"/ $___v /"'{s/^\([^ ]*  *[^ ]*\).*/\1/p;q;}'
+)" || exit 1
+[ "$___c" ] || die "unknown command: $1"
+CMDFUNC="${___c% *}"; CMD="${___c#* }"; [ "$CMD" = "$1" ] || CMDALIAS="$1"
+unset ___c; shift
+__self__="${CMDSTASH_ARGZERO##*/} $CMD"
 
 if [ "$___x" ]; then unset ___x; set -x; else unset ___x; fi
 "$CMDFUNC" "$@"
