@@ -249,8 +249,8 @@ case "$1" in
 	*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')";;
 	*) ___v="$1";;
 esac
-printf '%s\n' "$__COMMANDS__" | sed --posix -n \
-'/^#/d; /^\t/d; /^$/d; s/$/ /;'"/ $___v /"'{s/^\([^ ]*  *[^ ]*\).*/\1/p;q;}'
+printf '%s\n' "$__COMMANDS__" | sed -n '/^#/d; /^$/d; /^\t/d;
+s/$/ /;'"/ $___v /"'{s/^\([^ ]*  *[^ ]*\).*/\1/p;q;}'
 )" || exit 1
 [ "$___c" ] || die "unknown command: $1"
 CMDFUNC="${___c% *}"; CMD="${___c#* }"; [ "$CMD" = "$1" ] || CMDALIAS="$1"
