@@ -8,6 +8,7 @@ CMDSTASH_ORIGINALPWD="${PWD:?}"
 cd "${0%"${0##*/}"}."
 . "./cmdsta.sh"
 ### COMMANDS BELOW (do NOT edit this line: it is expected by cmdstash) ###
+CMDSTASH_CHAIN_ALIAS=ch
 
 # Just a silly command to expose how cmdstash works
 CMD helloworld hw -- 'say hello world'

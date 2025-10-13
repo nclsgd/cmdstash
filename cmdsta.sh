@@ -249,11 +249,14 @@ case "$1" in
 	*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')";;
 	*) ___v="$1";;
 esac
-printf '%s\n' "$__COMMANDS__" | sed -n '/^#/d; /^$/d; /^\t/d;
-s/$/ /;'"/ $___v /"'{s/^\([^ ]*  *[^ ]*\).*/\1/p;q;}'
+printf '%s\n' "$__COMMANDS__" | sed -n '/^#/d; /^$/d;
+/^[^	]/{ s/$/ /; '"/ $___v /"'{
+s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t USAGE; s/\n.*//; p
+}; }; b; :USAGE p; n; s/^\t//; t USAGE'
 )" || exit 1
 [ "$___c" ] || die "unknown command: $1"
-CMDFUNC="${___c% *}"; CMD="${___c#* }"; [ "$CMD" = "$1" ] || CMDALIAS="$1"
+CMDFUNC="${___c%% *}"; CMD="${___c#"$CMDFUNC "}"; CMD="${CMD%%" "*}";
+CMDUSAGE="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
 __self__="${CMDSTASH_ARGZERO##*/} $CMD"
 
