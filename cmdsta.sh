@@ -11,6 +11,7 @@
 # shellcheck disable=SC3040   # allow pipefail option usage in POSIX sh
 set -eu; (set -o pipefail) 2>/dev/null && set -o pipefail
 
+# Handy basic utility functions exposed in the cmdstash'ed scripts:
 # shellcheck disable=SC2015   # yes, A && B || C is not if-then-else
 say() { printf>&2 '%s:' "${__self__:-${CMDSTASH_ARGZERO:?}}" &&\
 printf>&2 ' %s' "$@" && printf>&2 '\n' ||:; }
@@ -22,6 +23,7 @@ printf '%s' "${1%"${1##*[![:space:]]}"}"; }
 quote() { while [ "${1+x}" ]; do printf '|%s|' "$1" | sed \
 "s/'/'\\\\''/g; 1s/^|/'/; \$s/|\$/'/;${2+" \$s/\$/ /;"}"; shift; done; }
 
+# Declaring CMD (commands):
 CMD() { __CMD__ "$@"; }
 __CMD__() {
 	___v=''  # function name behind the command
