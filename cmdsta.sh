@@ -220,6 +220,7 @@ case "$-" in *e*);; *) die "cmdstash: errexit option (set -e) was disabled";; es
 case "$-" in *u*);; *) die "cmdstash: nounset option (set -u) was disabled";; esac
 
 # Expose the chain command if there are more than two commands defined:
+# shellcheck disable=SC2086  # word splitting is expected here
 case "$(printf '%s\n' "$__COMMANDS__" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
 	''|0|1);;
 	*) [ "${CMDSTASH_CHAIN_NOCMD:-0}" = 0 ] &&\
@@ -256,6 +257,7 @@ s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t USAGE; s/\n.*//; p
 )" || exit 1
 [ "$___c" ] || die "unknown command: $1"
 CMDFUNC="${___c%% *}"; CMD="${___c#"$CMDFUNC "}"; CMD="${CMD%%" "*}";
+# shellcheck disable=SC2034  # CMDUSAGE is to be used by cmdstash'ed scripts
 CMDUSAGE="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
 __self__="${CMDSTASH_ARGZERO##*/} $CMD"
