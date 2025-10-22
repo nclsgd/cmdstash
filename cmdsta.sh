@@ -65,6 +65,46 @@ $___v"  # no leading whitespace here!
 $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"; fi
 }
 
+# Core logic follows:
+: "${CMDSTASH_ORIGINALPWD:="${PWD:?}"}"
+readonly CMDSTASH_ORIGINALPWD
+
+CMDSTASH_ARGZERO="${0:?}"
+# Handle zsh pure mode where $0 would be the cmdstash file and not the source:
+if [ "${ZSH_ARGZERO:-}" ] && [ "$(PATH='' emulate 2>/dev/null)" = zsh ]; then
+	CMDSTASH_ARGZERO="$ZSH_ARGZERO"
+fi
+readonly CMDSTASH_ARGZERO
+
+CMDSTASH_SHELL="$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
+CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")"
+case "$CMDSTASH_SHELL" in
+	'') die "cmdstash: \$0 does not begin with a shebang: $CMDSTASH_ARGZERO";;
+	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*)
+		die "cmdstash: read an unexpected shebang: $CMDSTASH_SHELL";;
+esac
+readonly CMDSTASH_SHELL
+
+__self__="$CMDSTASH_ARGZERO"
+__COMMANDS__=''
+unset ABOUT
+
+# Mark our functions as readonly if the shell supports it (Bash-only):
+if [ "$(eval 2>/dev/null \
+       'f(){ echo 1;};readonly>&2 -f f||:;f(){ echo 2;}||:;f||:')" = 1 ]; then
+	# shellcheck disable=SC3045  # `readonly -f' support is validated above
+	readonly -f say die trim quote
+fi
+
+eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" \
+'1,/^###.* COMMANDS BELOW .*###$/d')"
+
+# Ensure that errexit and nounset options are still enabled after the eval:
+case "$-" in *e*);; *) die "cmdstash: the shell errexit option (aka. \`set -e')" \
+"has been disabled by the script, this is unsupported by cmdstash";; esac
+case "$-" in *e*);; *) die "cmdstash: the shell nounset option (aka. \`set -u')" \
+"has been disabled by the script, this is unsupported by cmdstash";; esac
+
 # Invoke another command from the cmdstash script (potentially wrapped by a
 # function or command provided with the `-w' option):
 invoke() {
@@ -83,6 +123,7 @@ invoke() {
 	esac; done; unset ___o
 	[ "${1+x}" ] || die "invoke: missing command"
 	if [ "$___w" ]; then
+		# shellcheck disable=SC2016  # no expansion between single quotes
 		# shellcheck disable=SC2086  # word splitting is expected here
 		set -- $___w /bin/sh -c 'cd "$0" && exec "$@"' \
 "${CMDSTASH_ORIGINALPWD:?}" \
@@ -100,8 +141,7 @@ ${___x:+-x} -- "$@"
 }
 
 # Chain cmdstash commands:
-# shellcheck disable=SC2034  # unused variable to be used by downstream
-CMDSTASH_CHAIN_USAGE="\
+readonly CMDSTASH_CHAIN_USAGE="\
 invoke commands sequentially
   args:  [-d DELIMITER]  specify a (cautiously chosen) special
                          delimiter argument to allow using
@@ -183,43 +223,12 @@ s/||/, /g; s/^/  /; }; s/^\t/        /;'
 	if [ "$ABOUT" ]; then printf '\n%s\n' "$ABOUT"; fi
 }
 
-# Core logic follows:
-: "${CMDSTASH_ORIGINALPWD:="${PWD:?}"}"
-readonly CMDSTASH_ORIGINALPWD
-
-CMDSTASH_ARGZERO="${0:?}"
-# Handle zsh pure mode where $0 would be the cmdstash file and not the source:
-if [ "${ZSH_ARGZERO:-}" ] && [ "$(PATH='' emulate 2>/dev/null)" = zsh ]; then
-	CMDSTASH_ARGZERO="$ZSH_ARGZERO"
-fi
-readonly CMDSTASH_ARGZERO
-
-CMDSTASH_SHELL="$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
-CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")"
-case "$CMDSTASH_SHELL" in
-	'') die "cmdstash: \$0 does not begin with a shebang: $CMDSTASH_ARGZERO";;
-	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*)
-		die "cmdstash: read an unexpected shebang: $CMDSTASH_SHELL";;
-esac
-readonly CMDSTASH_SHELL
-
-__self__="$CMDSTASH_ARGZERO"
-__COMMANDS__=''
-unset ABOUT
-
 # Mark our functions as readonly if the shell supports it (Bash-only):
 if [ "$(eval 2>/dev/null \
        'f(){ echo 1;};readonly>&2 -f f||:;f(){ echo 2;}||:;f||:')" = 1 ]; then
 	# shellcheck disable=SC3045  # `readonly -f' support is validated above
-	readonly -f say die trim quote invoke chain usage
+	readonly -f invoke chain usage
 fi
-
-eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" \
-'1,/^###.* COMMANDS BELOW .*###$/d')"
-
-# Ensure that errexit and nounset options are still enabled after the eval:
-case "$-" in *e*);; *) die "cmdstash: errexit option (set -e) was disabled";; esac
-case "$-" in *u*);; *) die "cmdstash: nounset option (set -u) was disabled";; esac
 
 # Expose the chain command if there are more than two commands defined:
 # shellcheck disable=SC2086  # word splitting is expected here
