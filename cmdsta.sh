@@ -23,6 +23,37 @@ printf '%s' "${1%"${1##*[![:space:]]}"}"; }
 quote() { while [ "${1+x}" ]; do printf '|%s|' "$1" | sed \
 "s/'/'\\\\''/g; 1s/^|/'/; \$s/|\$/'/;${2+" \$s/\$/ /;"}"; shift; done; }
 
+# Core logic follows:
+CMDSTASH_ARGZERO="${0:?}"
+# Handle zsh pure mode where $0 would be the cmdstash file and not the source:
+if [ "${ZSH_ARGZERO:-}" ] && [ "$(PATH='' emulate 2>/dev/null)" = zsh ]; then
+	CMDSTASH_ARGZERO="$ZSH_ARGZERO"
+fi
+readonly CMDSTASH_ARGZERO
+
+: "${CMDSTASH_ORIGINALPWD:="${PWD:?}"}"
+readonly CMDSTASH_ORIGINALPWD
+
+CMDSTASH_SHELL="$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
+CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")"
+case "$CMDSTASH_SHELL" in
+	'') die "cmdstash: \$0 does not begin with a shebang: $CMDSTASH_ARGZERO";;
+	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*)
+		die "cmdstash: unexpected shebang read: #!$CMDSTASH_SHELL";;
+esac
+readonly CMDSTASH_SHELL
+
+# Mark our functions as readonly if the shell supports it (Bash-only):
+if [ "$(eval 2>/dev/null \
+       'f(){ echo 1;};readonly>&2 -f f||:;f(){ echo 2;}||:;f||:')" = 1 ]; then
+	# shellcheck disable=SC3045  # `readonly -f' support is validated above
+	readonly -f say die trim quote
+fi
+
+__self__="${CMDSTASH_ARGZERO##*/}"
+__COMMANDS__=''
+unset ABOUT
+
 # Declaring CMD (commands):
 CMD() { __CMD__ "$@"; }
 __CMD__() {
@@ -39,70 +70,32 @@ __CMD__() {
 	[ "${1+x}" ] || die "CMD: missing name"
 	: "${___v:="$1"}"
 	case "$___v" in
-		''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: illegal command name: $1";;
+		''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: invalid command name: $1";;
 		[!a-zA-Z_]*|*[!a-zA-Z0-9_]*)
 			[ "$(eval 2>/dev/null "$___v(){ echo K;}&& $___v")" = K ] || die \
 				"CMD: valid command name but illegal function name: $___v"
 	esac
 	__COMMANDS__="${__COMMANDS__:-"# cmdstash commands definition table, DO NOT EDIT!"}
 $___v"  # no leading whitespace here!
-	unset ___v  # reused for the command name (sanitized for sed)
+	unset ___v
 	while [ "${1+x}" ]; do
 		case "$1" in
 			--) shift; break ;;
-			''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: illegal command name: $1";;
-			*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')" ;;
-			*) ___v="$1" ;;
+			''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: invalid command name: $1";;
 		esac
-		if [ "$(printf '%s\n' "$__COMMANDS__" | sed -n \
-'/^#/d; /^\t/d; /^$/d; s/$/ /;'"/ $___v /{p;q}")" ]; then
-			die "CMD: already defined command: $1"
-		fi
 		__COMMANDS__="$__COMMANDS__ $1"; shift
 	done
-	unset ___v
 	if [ "${1+x}" ]; then __COMMANDS__="$__COMMANDS__
 $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"; fi
 }
-
-# Core logic follows:
-: "${CMDSTASH_ORIGINALPWD:="${PWD:?}"}"
-readonly CMDSTASH_ORIGINALPWD
-
-CMDSTASH_ARGZERO="${0:?}"
-# Handle zsh pure mode where $0 would be the cmdstash file and not the source:
-if [ "${ZSH_ARGZERO:-}" ] && [ "$(PATH='' emulate 2>/dev/null)" = zsh ]; then
-	CMDSTASH_ARGZERO="$ZSH_ARGZERO"
-fi
-readonly CMDSTASH_ARGZERO
-
-CMDSTASH_SHELL="$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
-CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")"
-case "$CMDSTASH_SHELL" in
-	'') die "cmdstash: \$0 does not begin with a shebang: $CMDSTASH_ARGZERO";;
-	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*)
-		die "cmdstash: read an unexpected shebang: $CMDSTASH_SHELL";;
-esac
-readonly CMDSTASH_SHELL
-
-__self__="$CMDSTASH_ARGZERO"
-__COMMANDS__=''
-unset ABOUT
-
-# Mark our functions as readonly if the shell supports it (Bash-only):
-if [ "$(eval 2>/dev/null \
-       'f(){ echo 1;};readonly>&2 -f f||:;f(){ echo 2;}||:;f||:')" = 1 ]; then
-	# shellcheck disable=SC3045  # `readonly -f' support is validated above
-	readonly -f say die trim quote
-fi
 
 eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" \
 '1,/^###.* COMMANDS BELOW .*###$/d')"
 
 # Ensure that errexit and nounset options are still enabled after the eval:
-case "$-" in *e*);; *) die "cmdstash: the shell errexit option (aka. \`set -e')" \
+case "$-" in *e*);; *) die "cmdstash: the shell \`errexit' option (\`set -e')" \
 "has been disabled by the script, this is unsupported by cmdstash";; esac
-case "$-" in *e*);; *) die "cmdstash: the shell nounset option (aka. \`set -u')" \
+case "$-" in *e*);; *) die "cmdstash: the shell \`nounset' option (\`set -u')" \
 "has been disabled by the script, this is unsupported by cmdstash";; esac
 
 # Invoke another command from the cmdstash script (potentially wrapped by a
@@ -208,8 +201,13 @@ chain() {
 usage() {
 	set -- "$CMDSTASH_ARGZERO"
 	printf '%s\n' "\
-usage:  $1 [-x] COMMAND [ARG...]  invoke the command  [-x enables xtrace]
-        $1 -h                     display this help and exit" || return 1
+usage: $1 [-x] COMMAND [ARGS...]
+       $1 -h|-c
+options:
+   -h   display this help and exit
+   -x   enable xtrace during command invocation
+   -c   generate a Bash completion script and exit
+" || return 1
 	[ "$__COMMANDS__" ] || { printf '%s\n' "no commands defined"; return; }
 	printf '%s\n' "commands:"
 	printf '%s\n' "$__COMMANDS__" | sed '/^#/d; /^$/d;
@@ -221,6 +219,49 @@ s/^\(..................................................\)  */\1  /;
 s/||/, /g; s/^/  /; }; s/^\t/        /;'
 	ABOUT="$(trim "${ABOUT:-}")"
 	if [ "$ABOUT" ]; then printf '\n%s\n' "$ABOUT"; fi
+}
+
+cmdstash_bash_completion_script() {
+	if [ -t 1 ] && [ ! "${CMDSTASH_STDOUTISATTY:-}" ]; then
+		say "cmdstash: unexpected: stdout is a tty"
+		die "cmdstash: the completion script must be evaluated by the shell, try running:
+    eval \"\$($CMDSTASH_ARGZERO -c)\""
+	fi
+	# shellcheck disable=SC2016
+	printf '%s\n' '__cmdstash_scripts_completion() {
+	local _script="${COMP_WORDS[0]}"
+	if ! [[ -f "$_script" && -x "$_script" && "$_script" =~ .+/.+ &&
+	        -n "$(sed "/^#!/p;q" < "$_script")" &&
+	        -n "$(sed "/^###.* COMMANDS BELOW .*###$/!d" < "$_script")" ]]; then
+		return 1
+	fi
+	case "${COMP_WORDS[COMP_CWORD]}" in
+		/*|./*|../*) mapfile -t COMPREPLY <<<"$(compgen -f \
+-- "${COMP_WORDS[COMP_CWORD]}")";;
+		*) local __cmds
+__cmds="$(CMDSTASH_COMPLETION=bash "$_script" -h 2>/dev/null | sed \
+"1,/^commands:\$/d; /^\$/,\$d; /^    */d; s/^  //; s/ .*//;")"
+[[ "$__cmds" ]] && mapfile -t COMPREPLY <<<"$(compgen \
+-W "-h $__cmds" -- "${COMP_WORDS[COMP_CWORD]}")"
+	esac
+}
+_cmdstash_complete() {
+	local _c; for _c; do
+		case "$_c" in
+			""|*[!a-zA-Z0-9_.+-]*) echo >&2 \
+"_cmdstash_complete: skipping unsupported script basename: $_c" ||: ;;
+			*) __cmdstash_completions+=("$_c")
+complete -F __cmdstash_scripts_completion -- "$_c" "./$_c" ;;
+		esac
+	done
+}
+_cmdstash_remove_completions() {
+	local _c; for _c in "${__cmdstash_completions[@]}"; do
+		complete -r -- "$_c" "./$_c"
+	done
+	unset __cmdstash_completions
+}'
+	printf '%s\n' "_cmdstash_complete $(quote "${CMDSTASH_ARGZERO##*/}")"
 }
 
 # Mark our functions as readonly if the shell supports it (Bash-only):
@@ -241,11 +282,24 @@ esac
 readonly __COMMANDS__
 unset -f CMD __CMD__
 
+# Check there is no duplicate commands
+___v="$(printf '%s\n' "$__COMMANDS__" \
+	| sed '/^#/d; /^\t/d; /^$/d; s/^[^ ]* //;' \
+	| sed ':a; N; $!ba; s/\n/ /g; s/  */ /g; s/^  *//; s/  *$//;')"
+while [ "${___v#* }" != "${___v%% *}" ]; do
+	case " ${___v#* } " in *" ${___v%% *} "*)
+		die "cmdstash: duplicate definition for command or alias: ${___v%% *}";;
+	esac
+	___v="${___v#* }"
+done
+unset ___v
+
 ___x=''  # xtrace option
 while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 	-x) ___x=x ;;
 	-h) usage; exit "$?" ;;
-	-[xh]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
+	-c) cmdstash_bash_completion_script; exit "$?" ;;
+	-[xhc]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 	--)  break ;;
 	-?*) die "cmdstash: unknown option ${___o%"${___o#??}"}" ;;
 	*)   set -- "$___o" "$@"; break ;;
@@ -257,7 +311,7 @@ readonly CMDSTASH_OPTS
 
 ___c="$(
 case "$1" in
-	''|-*|*[!a-zA-Z0-9_.:@+-]*) die "illegal command name: $1";;
+	''|-*|*[!a-zA-Z0-9_.:@+-]*) die "invalid command name: $1";;
 	*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')";;
 	*) ___v="$1";;
 esac
@@ -271,69 +325,9 @@ CMDFUNC="${___c%% *}"; CMD="${___c#"$CMDFUNC "}"; CMD="${CMD%%" "*}";
 # shellcheck disable=SC2034  # CMDUSAGE is to be used by cmdstash'ed scripts
 CMDUSAGE="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
+readonly CMD CMDFUNC CMDUSAGE
 __self__="${CMDSTASH_ARGZERO##*/} $CMD"
 
 if [ "$___x" ]; then unset ___x; set -x; else unset ___x; fi
 "$CMDFUNC" "$@"
 exit "$?"
-
-# ----------------------------------------------------------------------------
-
-### BEGIN BASH COMPLETION ###
-
-# shellcheck disable=SC3010  # [[ is Bash
-# shellcheck disable=SC3011  # here-strings are Bash
-# shellcheck disable=SC3015  # =~ regex matching is Bash
-# shellcheck disable=SC3043  # local keyword is Bash
-# shellcheck disable=SC3044  # mapfile and compgen are Bash
-# shellcheck disable=SC3054  # arrays are Bash
-__cmdstash_scripts_completion() {
-	# Bail out if command is not a shell script with the expected boundary line
-	local _script="${COMP_WORDS[0]}"
-	if ! [[ -f "$_script" && -x "$_script" && "$_script" =~ .+/.+ &&
-	        -n "$(sed '/^#!/p;q' < "$_script")" &&
-	        -n "$(sed '/^###.* COMMANDS BELOW .*###$/!d' < "$_script")" ]]; then
-		return 1
-	fi
-
-	case "${COMP_WORDS[COMP_CWORD]}" in
-		/*|./*|../*) mapfile -t COMPREPLY <<<"$(compgen -f \
-			-- "${COMP_WORDS[COMP_CWORD]}")";;
-		*)	local __cmds
-			__cmds="$(_CMDSTASH_COMPLETION=bash "$_script" -h 2>/dev/null | sed \
-'1,/^commands:$/d; /^$/,$d; /^    */d; s/^  //; s/ .*//;')"
-			[[ "$__cmds" ]] && mapfile -t COMPREPLY <<<"$(compgen \
-				-W "-h $__cmds" -- "${COMP_WORDS[COMP_CWORD]}")"
-	esac
-}
-
-# shellcheck disable=SC3010  # [[ is Bash
-# shellcheck disable=SC3024,SC3030  # arrays are Bash
-# shellcheck disable=SC3043  # local keyword is Bash
-# shellcheck disable=SC3044  # complete is Bash
-# shellcheck disable=SC3054  # arrays are Bash
-_cmdstash_complete() {
-	local _c; for _c; do
-		case "$_c" in
-			''|*[!a-zA-Z0-9_.+-]*)
-				echo >&2 "_cmdstash_complete:" \
-					"skipping unsupported script basename: $_c" ||: ;;
-			*)
-				__cmdstash_completions+=("$_c")
-				complete -F __cmdstash_scripts_completion -- "$_c" "./$_c" ;;
-		esac
-	done
-}
-
-# shellcheck disable=SC3010  # [[ is Bash
-# shellcheck disable=SC3024,SC3030,SC3054  # arrays are Bash
-# shellcheck disable=SC3043  # local keyword is Bash
-# shellcheck disable=SC3044  # complete is Bash
-_cmdstash_remove_completions() {
-	local _c; for _c in "${__cmdstash_completions[@]}"; do
-		complete -r -- "$_c" "./$_c"
-	done
-	unset __cmdstash_completions
-}
-
-### END BASH COMPLETION ###
