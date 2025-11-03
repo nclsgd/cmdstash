@@ -23,7 +23,7 @@ printf '%s' "${1%"${1##*[![:space:]]}"}"; }
 quote() { while [ "${1+x}" ]; do printf '|%s|' "$1" | sed \
 "s/'/'\\\\''/g; 1s/^|/'/; \$s/|\$/'/;${2+" \$s/\$/ /;"}"; shift; done; }
 
-# Core logic follows:
+# cmdstash dedicated constants and runtime checks:
 CMDSTASH_ARGZERO="${0:?}"
 # Handle zsh pure mode where $0 would be the cmdstash file and not the source:
 if [ "${ZSH_ARGZERO:-}" ] && [ "$(PATH='' emulate 2>/dev/null)" = zsh ]; then
@@ -41,14 +41,19 @@ case "$CMDSTASH_SHELL" in
 	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*)
 		die "cmdstash: unexpected shebang read: #!$CMDSTASH_SHELL";;
 esac
-readonly CMDSTASH_SHELL
-
-# Mark our functions as readonly if the shell supports it (Bash-only):
+CMDSTASH_SHELLFEAT=''
+# Probe if the shell supports readonly functions with `readonly -f' (Bash):
 if [ "$(eval 2>/dev/null \
-       'f(){ echo 1;};readonly>&2 -f f||:;f(){ echo 2;}||:;f||:')" = 1 ]; then
-	# shellcheck disable=SC3045  # `readonly -f' support is validated above
-	readonly -f say die trim quote
+'_f(){ echo 1;}; readonly>&2 -f _f||:; _f(){ echo 2;}||:; _f||:')" = 1 ]; then
+	CMDSTASH_SHELLFEAT="$CMDSTASH_SHELLFEAT${CMDSTASH_SHELLFEAT:+:}readonlyfuncs"
 fi
+readonly CMDSTASH_SHELL CMDSTASH_SHELLFEAT
+
+# Mark the basic utility functions as readonly if supported:
+case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
+	# shellcheck disable=SC3045  # `readonly -f' support is validated above
+	readonly -f say die trim quote ;;
+esac
 
 __self__="${CMDSTASH_ARGZERO##*/}"
 __COMMANDS__=''
@@ -264,12 +269,11 @@ _cmdstash_remove_completions() {
 	printf '%s\n' "_cmdstash_complete $(quote "${CMDSTASH_ARGZERO##*/}")"
 }
 
-# Mark our functions as readonly if the shell supports it (Bash-only):
-if [ "$(eval 2>/dev/null \
-       'f(){ echo 1;};readonly>&2 -f f||:;f(){ echo 2;}||:;f||:')" = 1 ]; then
+# Mark our functions as readonly if the shell supports it:
+case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 	# shellcheck disable=SC3045  # `readonly -f' support is validated above
 	readonly -f invoke chain usage
-fi
+esac
 
 # Expose the chain command if there are more than two commands defined:
 # shellcheck disable=SC2086  # word splitting is expected here
