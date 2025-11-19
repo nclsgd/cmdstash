@@ -1,0 +1,2 @@
+* Ensure that the variables expected to be word expanded are marked as such for
+  zsh (i.e. zsh arrays)
