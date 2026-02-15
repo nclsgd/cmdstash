@@ -7,7 +7,8 @@ set -eu; (set -o pipefail) 2>/dev/null && set -o pipefail
 CMDSTASH_ORIGINALPWD="${PWD:?}"
 cd "${0%"${0##*/}"}."
 . "./cmdsta.sh"
-### COMMANDS BELOW (do NOT edit this line: it is expected by cmdstash) ###
+__CMDSTASH__  # here begins the cmdstash script, do not edit this marker line
+
 CMDSTASH_CHAIN_ALIAS=ch
 
 # Just a silly command to expose how cmdstash works

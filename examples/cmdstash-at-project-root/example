@@ -13,7 +13,7 @@ set "$1${1:+/}.." "$PWD"; cd ..; done; echo >&2 \
 "$0: could not determine PROJECT_BASEDIR by looking up parent dirs"; exit 1)"
 readonly PROJECT_BASEDIR
 . "${PROJECT_BASEDIR:?}/cmdsta.sh"
-### COMMANDS BELOW (do NOT edit this line: it is expected by cmdstash) ###
+__CMDSTASH__  # here begins the cmdstash script, do not edit this marker line
 
 # Just a silly command to expose how cmdstash works
 CMD helloworld hw -- 'say hello world'

@@ -5,7 +5,7 @@
 # cmdstash: a portable and embeddable shell script micro-framework to create
 #           handy command wrappers   <https://github.com/nclsgd/cmdstash>
 # SPDX-License-Identifier: 0BSD
-# Copyright (C) 2025 Nicolas Godinho <nicolas@godinho.me>
+# Copyright (C) 2025-2026 Nicolas Godinho <nicolas@godinho.me>
 
 # Safer shell options:
 # shellcheck disable=SC3040   # allow pipefail option usage in POSIX sh
@@ -94,8 +94,8 @@ $___v"  # no leading whitespace here!
 $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"; fi
 }
 
-eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" \
-'1,/^###.* COMMANDS BELOW .*###$/d')"
+eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed -n <"$CMDSTASH_ARGZERO" \
+'s/^__CMDSTASH__//;t a;b;:a /^[ 	]*$/bb;/^[ 	][ 	]*#/bb;b;:b {n;p;bb;}')"
 
 # Ensure that errexit and nounset options are still enabled after the eval:
 case "$-" in *e*);; *) die "cmdstash: the shell \`errexit' option (\`set -e')" \
@@ -213,7 +213,10 @@ options:
    -x   enable xtrace during command invocation
    -c   generate a Bash completion script and exit
 " || return 1
-	[ "$__COMMANDS__" ] || { printf '%s\n' "no commands defined"; return; }
+	if [ -z "$__COMMANDS__" ]; then
+		printf '%s\n' "no commands defined or missing \`__CMDSTASH__' marker line"
+		return
+	fi
 	printf '%s\n' "commands:"
 	printf '%s\n' "$__COMMANDS__" | sed '/^#/d; /^$/d;
 /^[^	]/{ s/^[^ ]* //; s/ /|/; s/ /||/g;
@@ -236,8 +239,9 @@ cmdstash_bash_completion_script() {
 	printf '%s\n' '__cmdstash_scripts_completion() {
 	local _script="${COMP_WORDS[0]}"
 	if ! [[ -f "$_script" && -x "$_script" && "$_script" =~ .+/.+ &&
-	        -n "$(sed "/^#!/p;q" < "$_script")" &&
-	        -n "$(sed "/^###.* COMMANDS BELOW .*###$/!d" < "$_script")" ]]; then
+	        -n "$(sed "/^#!/p;q" <"$_script")" && -n "$(sed -n <"$_script" \
+"s/^__CMDSTASH__//;t a;b;:a s/^[      ]*\$//;t b;s/^[  ][      ]*#//;t b;b;:b =;q")"
+	]]; then
 		return 1
 	fi
 	case "${COMP_WORDS[COMP_CWORD]}" in
