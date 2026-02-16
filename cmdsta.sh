@@ -65,14 +65,14 @@ __CMD__() {
 	___v=''  # function name behind the command
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-f)  [ "${1+x}" ] || die "CMD: missing function name"
-		     [ ! "$___v" ] || die "CMD: cannot define function twice"
+		     [ ! "$___v" ] || die "CMD: option $___o can only be used once"
 		     ___v="$1"; shift ;;
 		-[f]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
 		--)  break ;;
 		-?*) die "CMD: unknown option ${___o%"${___o#??}"}" ;;
 		*)   set -- "$___o" "$@"; break ;;
 	esac; done; unset ___o
-	[ "${1+x}" ] || die "CMD: missing name"
+	[ "${1+x}" ] || die "CMD: missing command name"
 	: "${___v:="$1"}"
 	case "$___v" in
 		''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: invalid command name: $1";;
@@ -110,7 +110,7 @@ invoke() {
 	___x=''  # whether to pass -x again
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-w)  [ "${1+x}" ] || die "invoke: missing wrapper function or command"
-		     [ ! "$___w" ] || die "invoke: cannot define wrapper twice"
+		     [ ! "$___w" ] || die "invoke: option $___o can only be used once"
 		     ___w="$1"; shift ;;
 		-x)  ___x=x ;;
 		-[w]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
@@ -154,7 +154,7 @@ chain() {
 	___X=''  # xtrace on invoked commands
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-d)  [ "${1+x}" ] || die "misused: missing delimiter"
-		     [ ! "$___D" ] || die "misused: cannot define delimiter twice"
+		     [ ! "$___D" ] || die "misused: option $___o can only be used once"
 		     ___d="$1"; ___D=x; shift ;;
 		-v)  ___v=x;;
 		-x)  ___X=x; ___v=x;;
