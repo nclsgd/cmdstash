@@ -139,7 +139,7 @@ ${___x:+-x} -- "$@"
 }
 
 # Chain cmdstash commands:
-readonly CMDSTASH_CHAIN_USAGE="\
+readonly CMDSTASH_CHAINHELP="\
 invoke commands sequentially
   args:  [-d DELIMITER]  specify a (cautiously chosen) special
                          delimiter argument to allow using
@@ -280,11 +280,12 @@ case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 esac
 
 # Expose the chain command if there are more than two commands defined:
+# NOTE: using __CMD__ as CMD might be overridden by users
 # shellcheck disable=SC2086  # word splitting is expected here
 case "$(printf '%s\n' "$__COMMANDS__" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
 	''|0|1);;
-	*) [ "${CMDSTASH_CHAIN_NOCMD:-0}" = 0 ] &&\
-		CMD chain ${CMDSTASH_CHAIN_ALIAS:-} -- "$CMDSTASH_CHAIN_USAGE";;
+	*) [ "${CMDSTASH_NOCHAINCMD:-0}" = 0 ] &&\
+		__CMD__ chain ${CMDSTASH_CHAINALIAS:-} -- "$CMDSTASH_CHAINHELP";;
 esac
 
 readonly __COMMANDS__
@@ -325,15 +326,15 @@ case "$1" in
 esac
 printf '%s\n' "$__COMMANDS__" | sed -n '/^#/d; /^$/d;
 /^[^	]/{ s/$/ /; '"/ $___v /"'{
-s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t USAGE; s/\n.*//; p
-}; }; b; :USAGE p; n; s/^\t//; t USAGE'
+s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t hlp; s/\n.*//; p
+}; }; b; :hlp p; n; s/^\t//; t hlp'
 )" || exit 1
 [ "$___c" ] || die "unknown command: $1"
 CMDFUNC="${___c%% *}"; CMD="${___c#"$CMDFUNC "}"; CMD="${CMD%%" "*}";
-# shellcheck disable=SC2034  # CMDUSAGE is to be used by cmdstash'ed scripts
-CMDUSAGE="${___c#"$CMDFUNC $CMD "}"
+# shellcheck disable=SC2034  # CMDHELP is to be used by cmdstash'ed scripts
+CMDHELP="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
-readonly CMD CMDFUNC CMDUSAGE
+readonly CMD CMDFUNC CMDHELP
 __self__="${CMDSTASH_ARGZERO##*/} $CMD"
 
 if [ "$___x" ]; then unset ___x; set -x; else unset ___x; fi
