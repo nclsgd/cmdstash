@@ -1,2 +1,21 @@
 * Ensure that the variables expected to be word expanded are marked as such for
   zsh (i.e. zsh arrays)
+
+* Use `builtin emulate' rather than `emulate' as it may be a name of a
+  user-defined function
+
+* Do not enforce set -eu and set -o pipefail (leave it to the downstream
+  script)
+  ==> ensure all the cmdstash script is safe without those option (catch errors
+      explicitly)
+
+* Version __cmdstash_* Bash completion functions
+
+* Define a hidden `-!' option to get the list of commands in a clean manner to
+  avoid parsing `-h' output
+
+* Introduce a CMDSECTION to have sections in the command listing in the help
+  output
+
+* Write tests suites with chosen versions of Bash, zsh, ksh, sh (dash, BusyBox
+  sh), etc.
