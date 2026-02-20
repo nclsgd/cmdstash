@@ -19,3 +19,14 @@
 
 * Write tests suites with chosen versions of Bash, zsh, ksh, sh (dash, BusyBox
   sh), etc.
+
+* Renames for this:
+```
+# Save aside the user workdir and change to this script's location:
+readonly UWD="${PWD:?}"; cd "${0%"${0##*/}"}."
+# ...
+CMDSTASH_USERWORKDIR="$UWD"
+rel2uwd() { ... }
+uwdrelpath() { ... }
+pathreltouwd() { ... }
+```
