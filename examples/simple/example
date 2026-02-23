@@ -4,11 +4,11 @@
 # shellcheck disable=SC3040   # allow pipefail option usage in POSIX sh
 set -eu; (set -o pipefail) 2>/dev/null && set -o pipefail
 
-# Self-relocate within the path of this script:
-readonly ORIGINALPWD="${PWD:?}"; cd "${0%"${0##*/}"}."
+# Save aside the user workdir and change workdir to this script's location:
+readonly UWD="${PWD:?}"; cd "${0%"${0##*/}"}."
 
-CMDSTASH_ORIGINALPWD="$ORIGINALPWD"
-. "./cmdsta.sh"
+# Load cmdstash:
+CMDSTASH_USERWORKDIR="$UWD"; . ./cmdsta.sh
 __CMDSTASH__  # here begins the cmdstash script, do not edit this marker line
 
 CMDSTASH_CHAINALIAS=ch

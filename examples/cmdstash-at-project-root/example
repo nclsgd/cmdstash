@@ -3,19 +3,19 @@
 # vim: set ft=sh ts=4 sw=4 noet ai tw=79:
 set -euo pipefail
 
-# Self-relocate within the path of this script:
-readonly ORIGINALPWD="${PWD:?}"; cd "${0%"${0##*/}"}."
+# Save aside the user workdir and change workdir to this script's location:
+readonly UWD="${PWD:?}"; cd "${0%"${0##*/}"}."
 
-# Find project base dir to load cmdstash from there and retrieve other
+# Find project basedir to load cmdstash from there and retrieve other
 # components from the base location:
-PROJECT_BASEDIR="$(set '' ''; cd .; while [ "$2" != / ]; do
+PROJECTBASEDIR="$(set '' ''; cd .; while [ "$2" != / ]; do
 [ -f .projectbasedir ] && { echo "${1:-.}"; exit 0; };
 set "$1${1:+/}.." "$PWD"; cd ..; done; echo >&2 \
-"$0: could not determine PROJECT_BASEDIR by looking up parent dirs"
-exit 1)" || exit 1; readonly PROJECT_BASEDIR
+"$0: could not determine PROJECTBASEDIR by looking up parent dirs"
+exit 1)" || exit 1; readonly PROJECTBASEDIR
 
-CMDSTASH_ORIGINALPWD="$ORIGINALPWD"
-. "${PROJECT_BASEDIR:?}/cmdsta.sh"
+# Load cmdstash:
+CMDSTASH_USERWORKDIR="$UWD"; . "${PROJECTBASEDIR:?}/cmdsta.sh"
 __CMDSTASH__  # here begins the cmdstash script, do not edit this marker line
 
 # Just a silly command to expose how cmdstash works
