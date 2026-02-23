@@ -46,10 +46,21 @@ if [ "${ZSH_ARGZERO:-}" ] && [ "$(PATH='' emulate 2>/dev/null)" = zsh ]; then
 fi
 readonly CMDSTASH_ARGZERO
 
-: "${CMDSTASH_ORIGINALPWD:="${PWD:?}"}"
-readonly CMDSTASH_ORIGINALPWD
+: "${CMDSTASH_USERWORKDIR:="${PWD:?}"}"
+readonly CMDSTASH_USERWORKDIR
 
-CMDSTASH_SHELL="$(cd "$CMDSTASH_ORIGINALPWD" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
+rel2uwd() {
+	case "$CMDSTASH_USERWORKDIR" in /*);; *) die \
+		"rel2uwd: CMDSTASH_USERWORKDIR is not an absolute path";; esac
+	case "$#" in 0) die "rel2uwd: missing path";; 1);; *) die \
+		"rel2uwd: too many arguments";; esac
+	case "${1:?}" in
+		/*) printf '%s' "$1";;
+		*)  printf '%s' "$CMDSTASH_USERWORKDIR/$1";;
+	esac
+}
+
+CMDSTASH_SHELL="$(cd "$CMDSTASH_USERWORKDIR" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
 CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")"
 case "$CMDSTASH_SHELL" in
 	'') die "cmdstash: \$0 does not begin with a shebang: $CMDSTASH_ARGZERO";;
@@ -109,7 +120,7 @@ $___v"  # no leading whitespace here!
 $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"; fi
 }
 
-eval "$(cd "$CMDSTASH_ORIGINALPWD" && sed -n <"$CMDSTASH_ARGZERO" \
+eval "$(cd "$CMDSTASH_USERWORKDIR" && sed -n <"$CMDSTASH_ARGZERO" \
 's/^__CMDSTASH__//;t a;b;:a /^[ 	]*$/bb;/^[ 	][ 	]*#/bb;b;:b {n;p;bb;}')"
 
 # Ensure that errexit and nounset options are still enabled after the eval:
@@ -139,7 +150,7 @@ invoke() {
 		# shellcheck disable=SC2016  # no expansion between single quotes
 		# shellcheck disable=SC2086  # word splitting is expected here
 		set -- $___w /bin/sh -c 'cd "$0" && exec "$@"' \
-"${CMDSTASH_ORIGINALPWD:?}" \
+"${CMDSTASH_USERWORKDIR:?}" \
 ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
 ${___x:+-x} -- "$@"
 		unset ___w ___x
@@ -149,7 +160,7 @@ ${___x:+-x} -- "$@"
 		set -- ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
 ${___x:+-x} -- "$@"
 		unset ___w ___x
-		( cd "${CMDSTASH_ORIGINALPWD:?}" && exec "$@" )
+		( cd "${CMDSTASH_USERWORKDIR:?}" && exec "$@" )
 	fi
 }
 
