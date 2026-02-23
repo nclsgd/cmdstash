@@ -13,15 +13,30 @@ set -eu; (set -o pipefail) 2>/dev/null && set -o pipefail
 
 # Handy basic utility functions exposed in the cmdstash'ed scripts:
 # shellcheck disable=SC2015   # yes, A && B || C is not if-then-else
-say() { printf>&2 '%s:' "${__self__:-${CMDSTASH_ARGZERO:?}}" &&\
-printf>&2 ' %s' "$@" && printf>&2 '\n' ||:; }
+say() {
+	printf>&2 '%s:' "${__CMDSTASH_SELF:-${CMDSTASH_ARGZERO:?}}" &&\
+	printf>&2 ' %s' "$@" && printf>&2 '\n' ||:
+}
+
 # shellcheck disable=SC2015   # yes, A && B || C is not if-then-else
-die() { printf>&2 '%s:' "${__self__:-${CMDSTASH_ARGZERO:?}}" &&\
-printf>&2 ' %s' "${@:-an error has occurred}" && printf>&2 '\n' ||:; exit 1; }
-trim() { set -- "${1#"${1%%[![:space:]]*}"}" &&\
-printf '%s' "${1%"${1##*[![:space:]]}"}"; }
-quote() { while [ "${1+x}" ]; do printf '|%s|' "$1" | sed \
-"s/'/'\\\\''/g; 1s/^|/'/; \$s/|\$/'/;${2+" \$s/\$/ /;"}"; shift; done; }
+die() {
+	printf>&2 '%s:' "${__CMDSTASH_SELF:-${CMDSTASH_ARGZERO:?}}" &&\
+	printf>&2 ' %s' "${@:-an error has occurred}" && printf>&2 '\n' ||:
+	exit 1
+}
+
+trim() {
+	set -- "${1#"${1%%[![:space:]]*}"}" &&\
+	printf '%s' "${1%"${1##*[![:space:]]}"}" || exit 1
+}
+
+quote() {
+	while [ "${1+x}" ]; do
+		printf '|%s|' "$1" | sed \
+			"s/'/'\\\\''/g; 1s/^|/'/; \$s/|\$/'/;${2+" \$s/\$/ /;"}" || exit 1
+		shift
+	done
+}
 
 # cmdstash dedicated constants and runtime checks:
 CMDSTASH_ARGZERO="${0:?}"
