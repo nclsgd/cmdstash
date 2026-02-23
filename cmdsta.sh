@@ -67,6 +67,7 @@ case "$CMDSTASH_SHELL" in
 	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*)
 		die "cmdstash: unexpected shebang read: #!$CMDSTASH_SHELL";;
 esac
+
 CMDSTASH_SHELLFEAT=''
 # Probe if the shell supports readonly functions with `readonly -f' (Bash):
 if [ "$(eval 2>/dev/null \
@@ -81,13 +82,13 @@ case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 	readonly -f say die trim quote ;;
 esac
 
-__self__="${CMDSTASH_ARGZERO##*/}"
-__COMMANDS__=''
+__CMDSTASH_SELF="${CMDSTASH_ARGZERO##*/}"
+__CMDSTASH_CMDS='# cmdstash commands defintion table, DO NOT EDIT!'
 unset ABOUT
 
 # Declaring CMD (commands):
-CMD() { __CMD__ "$@"; }
-__CMD__() {
+CMD() { _cmdstash_CMD "$@"; }
+_cmdstash_CMD() {
 	___v=''  # function name behind the command
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-f)  [ "${1+x}" ] || die "CMD: missing function name"
@@ -106,7 +107,7 @@ __CMD__() {
 			[ "$(eval 2>/dev/null "$___v(){ echo K;}&& $___v")" = K ] || die \
 				"CMD: valid command name but illegal function name: $___v"
 	esac
-	__COMMANDS__="${__COMMANDS__:-"# cmdstash commands definition table, DO NOT EDIT!"}
+	__CMDSTASH_CMDS="$__CMDSTASH_CMDS
 $___v"  # no leading whitespace here!
 	unset ___v
 	while [ "${1+x}" ]; do
@@ -114,10 +115,12 @@ $___v"  # no leading whitespace here!
 			--) shift; break ;;
 			''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: invalid command name: $1";;
 		esac
-		__COMMANDS__="$__COMMANDS__ $1"; shift
+		__CMDSTASH_CMDS="$__CMDSTASH_CMDS $1"; shift
 	done
-	if [ "${1+x}" ]; then __COMMANDS__="$__COMMANDS__
-$(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"; fi
+	if [ "${1+x}" ]; then
+		__CMDSTASH_CMDS="$__CMDSTASH_CMDS
+$(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"
+	fi
 }
 
 eval "$(cd "$CMDSTASH_USERWORKDIR" && sed -n <"$CMDSTASH_ARGZERO" \
@@ -239,12 +242,12 @@ options:
    -x   enable xtrace during command invocation
    -c   generate a Bash completion script and exit
 " || return 1
-	if [ -z "$__COMMANDS__" ]; then
+	if [ -z "$__CMDSTASH_CMDS" ]; then
 		printf '%s\n' "no commands defined or missing \`__CMDSTASH__' marker line"
 		return
 	fi
 	printf '%s\n' "commands:"
-	printf '%s\n' "$__COMMANDS__" | sed '/^#/d; /^$/d;
+	printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d; /^$/d;
 /^[^	]/{ s/^[^ ]* //; s/ /|/; s/ /||/g;
 s/|/                                                  /;
 / /s/[^ ][^ ]*$/(&)/;
@@ -306,19 +309,19 @@ case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 esac
 
 # Expose the chain command if there are more than two commands defined:
-# NOTE: using __CMD__ as CMD might be overridden by users
+# NOTE: using _cmdstash_CMD as CMD might be overridden by users
 # shellcheck disable=SC2086  # word splitting is expected here
-case "$(printf '%s\n' "$__COMMANDS__" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
+case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
 	''|0|1);;
 	*) [ "${CMDSTASH_NOCHAINCMD:-0}" = 0 ] &&\
-		__CMD__ chain ${CMDSTASH_CHAINALIAS:-} -- "$CMDSTASH_CHAINHELP";;
+		_cmdstash_CMD chain ${CMDSTASH_CHAINALIAS:-} -- "$CMDSTASH_CHAINHELP";;
 esac
 
-readonly __COMMANDS__
-unset -f CMD __CMD__
+readonly __CMDSTASH_CMDS
+unset -f CMD _cmdstash_CMD
 
 # Check there is no duplicate commands
-___v="$(printf '%s\n' "$__COMMANDS__" \
+___v="$(printf '%s\n' "$__CMDSTASH_CMDS" \
 	| sed '/^#/d; /^\t/d; /^$/d; s/^[^ ]* //;' \
 	| sed ':a; N; $!ba; s/\n/ /g; s/  */ /g; s/^  *//; s/  *$//;')"
 while [ "${___v#* }" != "${___v%% *}" ]; do
@@ -347,10 +350,10 @@ readonly CMDSTASH_OPTS
 ___c="$(
 case "$1" in
 	''|-*|*[!a-zA-Z0-9_.:@+-]*) die "invalid command name: $1";;
-	*.*) ___v="$(printf '%s' "$1"|sed 's/\./\\./g')";;
+	*.*) ___v="$(printf '%s' "$1" | sed 's/\./\\./g')";;
 	*) ___v="$1";;
 esac
-printf '%s\n' "$__COMMANDS__" | sed -n '/^#/d; /^$/d;
+printf '%s\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d;
 /^[^	]/{ s/$/ /; '"/ $___v /"'{
 s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t hlp; s/\n.*//; p
 }; }; b; :hlp p; n; s/^\t//; t hlp'
@@ -362,7 +365,7 @@ CMDHELP="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
 # shellcheck disable=SC2034  # CMDHELP is unused here but left for users
 readonly CMD CMDFUNC CMDHELP
-__self__="${CMDSTASH_ARGZERO##*/} $CMD"
+__CMDSTASH_SELF="${CMDSTASH_ARGZERO##*/} $CMD"
 
 if [ "$___x" ]; then unset ___x; set -x; else unset ___x; fi
 "$CMDFUNC" "$@"
