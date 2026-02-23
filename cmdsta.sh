@@ -360,6 +360,7 @@ CMDFUNC="${___c%% *}"; CMD="${___c#"$CMDFUNC "}"; CMD="${CMD%%" "*}";
 # shellcheck disable=SC2034  # CMDHELP is to be used by cmdstash'ed scripts
 CMDHELP="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
+# shellcheck disable=SC2034  # CMDHELP is unused here but left for users
 readonly CMD CMDFUNC CMDHELP
 __self__="${CMDSTASH_ARGZERO##*/} $CMD"
 
