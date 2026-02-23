@@ -7,29 +7,41 @@
 # SPDX-License-Identifier: 0BSD
 # Copyright (C) 2025-2026 Nicolas Godinho <nicolas@godinho.me>
 
-# Safer shell options:
-# shellcheck disable=SC3040   # allow pipefail option usage in POSIX sh
-set -eu; (set -o pipefail) 2>/dev/null && set -o pipefail
+# cmdstash dedicated constants and runtime checks:
+CMDSTASH_ARGZERO="${0:?}"
+# Handle zsh pure mode where $0 would be the cmdstash file and not the source:
+if [ "${ZSH_ARGZERO:-}" ] && [ "$(builtin emulate 2>/dev/null)" = zsh ]; then
+	CMDSTASH_ARGZERO="$ZSH_ARGZERO"
+fi
+readonly CMDSTASH_ARGZERO
 
-# Handy basic utility functions exposed in the cmdstash'ed scripts:
-# shellcheck disable=SC2015   # yes, A && B || C is not if-then-else
+# Write a message on stderr with a context prefix:
 say() {
-	printf>&2 '%s:' "${__CMDSTASH_SELF:-${CMDSTASH_ARGZERO:?}}" &&\
+	# shellcheck disable=SC2015   # yes, A && B || C is not if-then-else
+	printf>&2 '%s:' "${__CMDSTASH_SELF:-${CMDSTASH_ARGZERO:-$0}}" &&\
 	printf>&2 ' %s' "$@" && printf>&2 '\n' ||:
 }
 
-# shellcheck disable=SC2015   # yes, A && B || C is not if-then-else
+# Terminate shell with a context-prefixed explanation message on stderr:
 die() {
-	printf>&2 '%s:' "${__CMDSTASH_SELF:-${CMDSTASH_ARGZERO:?}}" &&\
+	# shellcheck disable=SC2015   # yes, A && B || C is not if-then-else
+	printf>&2 '%s:' "${__CMDSTASH_SELF:-${CMDSTASH_ARGZERO:-$0}}" &&\
 	printf>&2 ' %s' "${@:-an error has occurred}" && printf>&2 '\n' ||:
 	exit 1
 }
 
+# Trim leading and trailing whitespaces:
+# (Note: IFS concatenation is followed when multiple arguments are provided)
 trim() {
-	set -- "${1#"${1%%[![:space:]]*}"}" &&\
+	set -- "$*" && set -- "${1#"${1%%[![:space:]]*}"}" &&\
 	printf '%s' "${1%"${1##*[![:space:]]}"}" || exit 1
 }
 
+# Ensure sed is available via PATH resolution:
+[ "${CMDSTASH_DONOTCHECKSED:-}" ] || case "$(command -v sed)" in \
+/*);; *) die "cmdstash: \`sed' seems unfound in PATH";; esac
+
+# Quote arguments following POSIX shell escaping rules:
 quote() {
 	while [ "${1+x}" ]; do
 		printf '|%s|' "$1" | sed \
@@ -38,17 +50,11 @@ quote() {
 	done
 }
 
-# cmdstash dedicated constants and runtime checks:
-CMDSTASH_ARGZERO="${0:?}"
-# Handle zsh pure mode where $0 would be the cmdstash file and not the source:
-if [ "${ZSH_ARGZERO:-}" ] && [ "$(PATH='' emulate 2>/dev/null)" = zsh ]; then
-	CMDSTASH_ARGZERO="$ZSH_ARGZERO"
-fi
-readonly CMDSTASH_ARGZERO
-
+# Retrieve from parent script the user working directory (if provided):
 : "${CMDSTASH_USERWORKDIR:="${PWD:?}"}"
 readonly CMDSTASH_USERWORKDIR
 
+# Compute path relative to the user working directory (CMDSTASH_USERWORKDIR):
 rel2uwd() {
 	case "$CMDSTASH_USERWORKDIR" in /*);; *) die \
 		"rel2uwd: CMDSTASH_USERWORKDIR is not an absolute path";; esac
@@ -60,14 +66,17 @@ rel2uwd() {
 	esac
 }
 
-CMDSTASH_SHELL="$(cd "$CMDSTASH_USERWORKDIR" && sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')"
-CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")"
+# Retrieve the shell to be used by the parent script:
+CMDSTASH_SHELL="$(cd "$CMDSTASH_USERWORKDIR" &&\
+	sed <"$CMDSTASH_ARGZERO" 's/^#!//;q')" || die
+CMDSTASH_SHELL="$(trim "$CMDSTASH_SHELL")" || die
 case "$CMDSTASH_SHELL" in
 	'') die "cmdstash: \$0 does not begin with a shebang: $CMDSTASH_ARGZERO";;
 	[!/]*|*[!/a-zA-Z0-9_:,.\ +-]*)
 		die "cmdstash: unexpected shebang read: #!$CMDSTASH_SHELL";;
 esac
 
+# Shell special features:
 CMDSTASH_SHELLFEAT=''
 # Probe if the shell supports readonly functions with `readonly -f' (Bash):
 if [ "$(eval 2>/dev/null \
@@ -79,11 +88,12 @@ readonly CMDSTASH_SHELL CMDSTASH_SHELLFEAT
 # Mark the basic utility functions as readonly if supported:
 case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 	# shellcheck disable=SC3045  # `readonly -f' support is validated above
-	readonly -f say die trim quote ;;
+	readonly -f say die trim quote rel2uwd ;;
 esac
 
 __CMDSTASH_SELF="${CMDSTASH_ARGZERO##*/}"
 __CMDSTASH_CMDS='# cmdstash commands defintion table, DO NOT EDIT!'
+__CMDSTASH_CURRENTSECTION=''
 unset ABOUT
 
 # Declaring CMD (commands):
@@ -104,8 +114,8 @@ _cmdstash_CMD() {
 	case "$___v" in
 		''|-*|*[!a-zA-Z0-9_.:@+-]*) die "CMD: invalid command name: $1";;
 		[!a-zA-Z_]*|*[!a-zA-Z0-9_]*)
-			[ "$(eval 2>/dev/null "$___v(){ echo K;}&& $___v")" = K ] || die \
-				"CMD: valid command name but illegal function name: $___v"
+			[ "$(eval 2>/dev/null "$___v(){ echo ok;}&& $___v")" = ok ] || die \
+				"CMD: accepted command name but illegal function name: $___v"
 	esac
 	__CMDSTASH_CMDS="$__CMDSTASH_CMDS
 $___v"  # no leading whitespace here!
@@ -123,14 +133,16 @@ $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"
 	fi
 }
 
+# Declaring command sections:
+CMDSECTION() { _cmdstash_CMDSECTION "$@"; }
+_cmdstash_CMDSECTION() {
+	die "TBD: CMDSECTION"
+	__CMDSTASH_CURRENTSECTION="$(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d')"
+}
+
+# Evaluate all the command definitions in the parent script:
 eval "$(cd "$CMDSTASH_USERWORKDIR" && sed -n <"$CMDSTASH_ARGZERO" \
 's/^__CMDSTASH__//;t a;b;:a /^[ 	]*$/bb;/^[ 	][ 	]*#/bb;b;:b {n;p;bb;}')"
-
-# Ensure that errexit and nounset options are still enabled after the eval:
-case "$-" in *e*);; *) die "cmdstash: the shell \`errexit' option (\`set -e')" \
-"has been disabled by the script, this is unsupported by cmdstash";; esac
-case "$-" in *e*);; *) die "cmdstash: the shell \`nounset' option (\`set -u')" \
-"has been disabled by the script, this is unsupported by cmdstash";; esac
 
 # Invoke another command from the cmdstash script (potentially wrapped by a
 # function or command provided with the `-w' option):
@@ -153,30 +165,39 @@ invoke() {
 		# shellcheck disable=SC2016  # no expansion between single quotes
 		# shellcheck disable=SC2086  # word splitting is expected here
 		set -- $___w /bin/sh -c 'cd "$0" && exec "$@"' \
-"${CMDSTASH_USERWORKDIR:?}" \
-${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
-${___x:+-x} -- "$@"
+			"${CMDSTASH_USERWORKDIR:?}" \
+			${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
+			${___x:+-x} -- "$@"
 		unset ___w ___x
 		"$@"
 	else
 		# shellcheck disable=SC2086  # word splitting is expected here
 		set -- ${CMDSTASH_SHELL:?} "${CMDSTASH_ARGZERO:?}" ${CMDSTASH_OPTS?} \
-${___x:+-x} -- "$@"
+			${___x:+-x} -- "$@"
 		unset ___w ___x
 		( cd "${CMDSTASH_USERWORKDIR:?}" && exec "$@" )
 	fi
 }
 
 # Chain cmdstash commands:
-readonly CMDSTASH_CHAINHELP="\
-invoke commands sequentially
-  args:  [-d DELIMITER]  specify a (cautiously chosen) special
-                         delimiter argument to allow using
-                         arguments on chained commands
-         [-v]    be verbose and print the invoked commands
-         [-x]    enable xtrace on chain commands (implies -v)
+readonly CMDSTASH_CHAINHELP_COMPLETE="\
+invoke commands in sequence
+  args:  [-vxeCh]           COMMAND [COMMAND...]
+         [-vxeCh] -d DELIM  COMMAND [ARGS...] [DELIM COMMAND [ARGS...]]...
+  opts:   -v        be verbose and print the invoked commands
+          -d DELIM  specify a special delimiter value to allow
+                    arguments on chained commands
+          -x        enable xtrace on the invoked commands (implies -v)
+          -e        abort sequence on first failed command
+          -C        continue sequence even after failed commands
+                    (use with caution!)
+          -h        display this help and exit
 "
+readonly CMDSTASH_CHAINHELP_ALT="\
+invoke commands in sequence  (\`-h' option shows more information)"
+readonly CMDSTASH_CHAINHELP="$CMDSTASH_CHAINHELP_ALT"
 chain() {
+	# NB: these "fake" local vars must not collide with those of invoke
 	___d=''  # the delimiter value
 	___D=''  # is the delimiter defined?
 	___v=''  # verbosity
@@ -209,10 +230,13 @@ chain() {
 		eval "___k=\"\${$___j}\""
 		if [ "$___k" = "$___d" ]; then
 			if [ "$___i" != "$___j" ]; then
-				___l="$(set -- "$___i" "$((___j-1))"
-				while [ "$1" -le "$2" ]; do
-				# shellcheck disable=SC2016
-				printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
+				___l="$(
+					set -- "$___i" "$((___j-1))"
+					while [ "$1" -le "$2" ]; do
+						# shellcheck disable=SC2016
+						printf ' "${%d}"' "$1"
+						set -- "$(($1+1))" "$2"
+					done)"
 				[ "$___v" ] && eval "say \"invoking command:\"$___l"
 				eval "invoke ${___X:+-x} --$___l || die \"command returned \$?:\"$___l"
 			fi
@@ -221,10 +245,13 @@ chain() {
 		___j="$((___j+1))"
 	done
 	if [ "$___i" != "$___j" ]; then
-		___l="$(set -- "$___i" "$((___j-1))"
-		while [ "$1" -le "$2" ]; do
-		# shellcheck disable=SC2016
-		printf ' "${%d}"' "$1"; set -- "$(($1+1))" "$2"; done)"
+		___l="$(
+			set -- "$___i" "$((___j-1))"
+			while [ "$1" -le "$2" ]; do
+				# shellcheck disable=SC2016
+				printf ' "${%d}"' "$1"
+				set -- "$(($1+1))" "$2"
+			done)"
 		[ "$___v" ] && eval "say \"invoking command:\"$___l"
 		eval "invoke ${___X:+-x} --$___l || die \"command returned \$?:\"$___l"
 	fi
@@ -237,10 +264,9 @@ cmdstash_usage() {
 	printf '%s\n' "\
 usage: $1 [-x] COMMAND [ARGS...]
        $1 -h|-c
-options:
-   -h   display this help and exit
-   -x   enable xtrace during command invocation
-   -c   generate a Bash completion script and exit
+options:   -h   display this help and exit
+           -x   enable xtrace during command invocation
+           -c   generate a Bash completion script and exit
 " || return 1
 	if [ -z "$__CMDSTASH_CMDS" ]; then
 		printf '%s\n' "no commands defined or missing \`__CMDSTASH__' marker line"
@@ -258,11 +284,23 @@ s/||/, /g; s/^/  /; }; s/^\t/        /;'
 	if [ "$ABOUT" ]; then printf '\n%s\n' "$ABOUT"; fi
 }
 
+cmdstash_usage_cmd() {
+	die "TODO/FIXME"
+	set -- "$CMDSTASH_ARGZERO" "$1"
+	printf '%s\n' "\
+usage: $1 [-x] COMMAND [ARGS...]
+       $1 -h|-c
+options:   -x   enable xtrace during command invocation
+
+$2" || return 1
+}
+
 cmdstash_bash_completion_script() {
 	if [ -t 1 ] && [ ! "${CMDSTASH_STDOUTISATTY:-}" ]; then
 		say "cmdstash: unexpected: stdout is a tty"
-		die "cmdstash: the completion script must be evaluated by the shell, try running:
-    eval \"\$($CMDSTASH_ARGZERO -c)\""
+		die "\
+cmdstash: the completion script must be evaluated by the shell, try running:
+    . <($CMDSTASH_ARGZERO -c)"
 	fi
 	# shellcheck disable=SC2016
 	printf '%s\n' '__cmdstash_scripts_completion() {
@@ -317,13 +355,17 @@ case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=
 		_cmdstash_CMD chain ${CMDSTASH_CHAINALIAS:-} -- "$CMDSTASH_CHAINHELP";;
 esac
 
+# TODO???: implement a CMDSTASH_HIDECHAINCMD setting
+
 readonly __CMDSTASH_CMDS
-unset -f CMD _cmdstash_CMD
+unset __CMDSTASH_CURRENTSECTION
+unset -f CMD _cmdstash_CMD CMDSECTION _cmdstash_CMDSECTION
 
 # Check there is no duplicate commands
-___v="$(printf '%s\n' "$__CMDSTASH_CMDS" \
+___v="$(
+	printf '%s\n' "$__CMDSTASH_CMDS" \
 	| sed '/^#/d; /^\t/d; /^$/d; s/^[^ ]* //;' \
-	| sed ':a; N; $!ba; s/\n/ /g; s/  */ /g; s/^  *//; s/  *$//;')"
+	| sed ':a; N; $!ba; s/\n/ /g; s/  */ /g; s/^  *//; s/  *$//;')" || die
 while [ "${___v#* }" != "${___v%% *}" ]; do
 	case " ${___v#* } " in *" ${___v%% *} "*)
 		die "cmdstash: duplicate definition for command or alias: ${___v%% *}";;
@@ -350,17 +392,17 @@ readonly CMDSTASH_OPTS
 ___c="$(
 case "$1" in
 	''|-*|*[!a-zA-Z0-9_.:@+-]*) die "invalid command name: $1";;
-	*.*) ___v="$(printf '%s' "$1" | sed 's/\./\\./g')";;
+	*.*) ___v="$(printf '%s' "$1" | sed 's/\./\\./g')" || die;;
 	*) ___v="$1";;
 esac
 printf '%s\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d;
 /^[^	]/{ s/$/ /; '"/ $___v /"'{
 s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t hlp; s/\n.*//; p
-}; }; b; :hlp p; n; s/^\t//; t hlp'
+}; }; b; :hlp p; n; s/^\t//; t hlp' || die
 )" || exit 1
 [ "$___c" ] || die "unknown command: $1"
 CMDFUNC="${___c%% *}"; CMD="${___c#"$CMDFUNC "}"; CMD="${CMD%%" "*}";
-# shellcheck disable=SC2034  # CMDHELP is to be used by cmdstash'ed scripts
+# shellcheck disable=SC2034  # CMDHELP is to be used by cmdstash scripts
 CMDHELP="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
 # shellcheck disable=SC2034  # CMDHELP is unused here but left for users
