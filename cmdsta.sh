@@ -232,7 +232,7 @@ chain() {
 }
 
 # Help and usage description listing all the available cmdstash commands:
-usage() {
+cmdstash_usage() {
 	set -- "$CMDSTASH_ARGZERO"
 	printf '%s\n' "\
 usage: $1 [-x] COMMAND [ARGS...]
@@ -305,7 +305,7 @@ _cmdstash_remove_completions() {
 # Mark our functions as readonly if the shell supports it:
 case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 	# shellcheck disable=SC3045  # `readonly -f' support is validated above
-	readonly -f invoke chain usage
+	readonly -f invoke chain cmdstash_usage
 esac
 
 # Expose the chain command if there are more than two commands defined:
@@ -335,14 +335,14 @@ unset ___v
 ___x=''  # xtrace option
 while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 	-x) ___x=x ;;
-	-h) usage; exit "$?" ;;
+	-h) cmdstash_usage; exit "$?" ;;
 	-c) cmdstash_bash_completion_script; exit "$?" ;;
 	-[xhc]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 	--)  break ;;
 	-?*) die "cmdstash: unknown option ${___o%"${___o#??}"}" ;;
 	*)   set -- "$___o" "$@"; break ;;
 esac; done; unset ___o
-[ "${1+x}" ] || { usage>&2||:;exit 1; }
+[ "${1+x}" ] || { cmdstash_usage>&2 ||:; exit 1; }
 
 CMDSTASH_OPTS="${___x:+-x}"
 readonly CMDSTASH_OPTS
