@@ -402,7 +402,7 @@ case "$1" in
 	*.*) ___v="$(printf '%s' "$1" | sed 's/\./\\./g')" || die;;
 	*) ___v="$1";;
 esac
-printf '%s\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d;
+printf '%s\n\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d; /^>/d;
 /^[^	]/{ s/$/ /; '"/ $___v /"'{
 s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t hlp; s/\n.*//; p
 }; }; b; :hlp p; n; s/^\t//; t hlp' || die
