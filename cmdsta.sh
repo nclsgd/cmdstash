@@ -267,10 +267,9 @@ options:  -v        be verbose and print the invoked commands
 
 # Help and usage description listing all the available cmdstash commands:
 cmdstash_usage() {
-	set -- "$CMDSTASH_ARGZERO"
 	printf '%s\n' "\
-usage: $1 [-x] COMMAND [ARGS...]
-       $1 -h|-c
+usage: $CMDSTASH_ARGZERO [-x] COMMAND [ARGS...]
+       $CMDSTASH_ARGZERO -h|-c
 options:   -h   display this help and exit
            -x   enable xtrace during command invocation
            -c   generate a Bash completion script and exit
