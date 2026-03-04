@@ -117,6 +117,10 @@ _cmdstash_CMD() {
 			[ "$(eval 2>/dev/null "$___v(){ echo ok;}&& $___v")" = ok ] || die \
 				"CMD: accepted command name but illegal function name: $___v"
 	esac
+	[ "${__CMDSTASH_CURRENTSECTION:-}" ] && {
+		__CMDSTASH_CMDS="$__CMDSTASH_CMDS
+$__CMDSTASH_CURRENTSECTION"; __CMDSTASH_CURRENTSECTION=''
+	}
 	__CMDSTASH_CMDS="$__CMDSTASH_CMDS
 $___v"  # no leading whitespace here!
 	unset ___v
@@ -136,8 +140,13 @@ $(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d;s/^/\t/')"
 # Declaring command sections:
 CMDSECTION() { _cmdstash_CMDSECTION "$@"; }
 _cmdstash_CMDSECTION() {
-	die "TBD: CMDSECTION"
-	__CMDSTASH_CURRENTSECTION="$(trim "$(printf '%s ' "$@")" | sed '/^[[:space:]]*$/d')"
+	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
+		--)  break ;;
+		-?*) die "CMDSECTION: unknown option ${___o%"${___o#??}"}" ;;
+		*)   set -- "$___o" "$@"; break ;;
+	esac; done; unset ___o
+	__CMDSTASH_CURRENTSECTION="$(trim "$(printf '%s ' "$@")" | sed \
+		'/^[[:space:]]*$/d;s/^/>/')"
 }
 
 # Evaluate all the command definitions in the parent script:
@@ -180,22 +189,6 @@ invoke() {
 }
 
 # Chain cmdstash commands:
-readonly CMDSTASH_CHAINHELP_COMPLETE="\
-invoke commands in sequence
-  args:  [-vxeCh]           COMMAND [COMMAND...]
-         [-vxeCh] -d DELIM  COMMAND [ARGS...] [DELIM COMMAND [ARGS...]]...
-  opts:   -v        be verbose and print the invoked commands
-          -d DELIM  specify a special delimiter value to allow
-                    arguments on chained commands
-          -x        enable xtrace on the invoked commands (implies -v)
-          -e        abort sequence on first failed command
-          -C        continue sequence even after failed commands
-                    (use with caution!)
-          -h        display this help and exit
-"
-readonly CMDSTASH_CHAINHELP_ALT="\
-invoke commands in sequence  (\`-h' option shows more information)"
-readonly CMDSTASH_CHAINHELP="$CMDSTASH_CHAINHELP_ALT"
 chain() {
 	# NB: these "fake" local vars must not collide with those of invoke
 	___d=''  # the delimiter value
@@ -208,8 +201,23 @@ chain() {
 		     ___d="$1"; ___D=x; shift ;;
 		-v)  ___v=x;;
 		-x)  ___X=x; ___v=x;;
+		-h) printf '%s\n' "\
+usage: $CMDSTASH_ARGZERO chain [-vxCh]          COMMAND [COMMAND...]
+       $CMDSTASH_ARGZERO chain [-vxCh] -d DELIM \\
+                COMMAND [ARGS...] [DELIM COMMAND [ARGS...]]...
+
+invoke commands in sequence
+
+options:  -v        be verbose and print the invoked commands
+          -d DELIM  specify a special delimiter value to allow
+                    arguments on chained commands
+          -x        enable xtrace on the invoked commands (implies -v)
+          -C        continue sequence even after failed commands
+                    (use with caution!)
+          -h        display this help and exit"; exit 0;;
+		-C) die "TBD";;
 		-[d]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
-		-[vx]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
+		-[vxCh]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 		--)  break ;;
 		-?*) die "misused: unknown option ${___o%"${___o#??}"}" ;;
 		*)   set -- "$___o" "$@"; break ;;
@@ -268,31 +276,26 @@ options:   -h   display this help and exit
            -x   enable xtrace during command invocation
            -c   generate a Bash completion script and exit
 " || return 1
-	if [ -z "$__CMDSTASH_CMDS" ]; then
-		printf '%s\n' "no commands defined or missing \`__CMDSTASH__' marker line"
-		return
-	fi
+	case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
+		''|0)
+			printf '%s\n' "no commands defined or missing \`__CMDSTASH__' marker line"
+			return
+	esac
 	printf '%s\n' "commands:"
 	printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d; /^$/d;
-/^[^	]/{ s/^[^ ]* //; s/ /|/; s/ /||/g;
-s/|/                                                  /;
-/ /s/[^ ][^ ]*$/(&)/;
-s/^\(..................................................\)  */\1  /;
-/^..................................................[^ ]/s/  */  /;
-s/||/, /g; s/^/  /; }; s/^\t/        /;'
+/^[^	>]/{
+	s/^[^ ]* //; s/ /|/; s/ /||/g;
+	s/|/                                                  /;
+	/ /s/[^ ][^ ]*$/(&)/;
+	s/^\(..................................................\)  */\1  /;
+	/^..................................................[^ ]/s/  */  /;
+	s/||/, /g; s/^/  /;
+}
+s/^>/    > /;
+s/^\t/        /;' | sed '/^    > /!{ N; s/\n    > /\n\n    > /; }'
 	ABOUT="$(trim "${ABOUT:-}")"
 	if [ "$ABOUT" ]; then printf '\n%s\n' "$ABOUT"; fi
-}
-
-cmdstash_usage_cmd() {
-	die "TODO/FIXME"
-	set -- "$CMDSTASH_ARGZERO" "$1"
-	printf '%s\n' "\
-usage: $1 [-x] COMMAND [ARGS...]
-       $1 -h|-c
-options:   -x   enable xtrace during command invocation
-
-$2" || return 1
+	#	printf "\n\n=======\n\n%s\n" "$__CMDSTASH_CMDS"
 }
 
 cmdstash_bash_completion_script() {
@@ -346,16 +349,22 @@ case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 	readonly -f invoke chain cmdstash_usage
 esac
 
-# Expose the chain command if there are more than two commands defined:
-# NOTE: using _cmdstash_CMD as CMD might be overridden by users
-# shellcheck disable=SC2086  # word splitting is expected here
+# Inject the chain command definition:
+case " ${CMDSTASH_CHAINALIAS:-}" in *[!" "a-zA-Z0-9_.:@+-]*|*" "-*) \
+die "cmdstash: invalid chain command alias definition: $CMDSTASH_CHAINALIAS";; esac
 case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
-	''|0|1);;
-	*) [ "${CMDSTASH_NOCHAINCMD:-0}" = 0 ] &&\
-		_cmdstash_CMD chain ${CMDSTASH_CHAINALIAS:-} -- "$CMDSTASH_CHAINHELP";;
+	''|0);;
+	*) __CMDSTASH_CMDS="$(printf '%s\n' "$__CMDSTASH_CMDS" | sed -n "
+/^>/ { i\\
+chain chain $CMDSTASH_CHAINALIAS\\
+	invoke commands in sequence  (use \`chain -h' for more information)
+b cont; }
+\$ { a\\
+chain chain $CMDSTASH_CHAINALIAS\\
+	invoke commands in sequence  (use \`chain -h' for more information)
+b cont; }
+p; b; :cont { p; n; b cont; }")";;
 esac
-
-# TODO???: implement a CMDSTASH_HIDECHAINCMD setting
 
 readonly __CMDSTASH_CMDS
 unset __CMDSTASH_CURRENTSECTION
