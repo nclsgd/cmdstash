@@ -195,6 +195,7 @@ chain() {
 	___D=''  # is the delimiter defined?
 	___v=''  # verbosity
 	___X=''  # xtrace on invoked commands
+	___C='die'  # function to call on invoke returning an error
 	while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 		-d)  [ "${1+x}" ] || die "misused: missing delimiter"
 		     [ ! "$___D" ] || die "misused: option $___o can only be used once"
@@ -202,20 +203,18 @@ chain() {
 		-v)  ___v=x;;
 		-x)  ___X=x; ___v=x;;
 		-h) printf '%s\n' "\
-usage: $CMDSTASH_ARGZERO chain [-vxCh]          COMMAND [COMMAND...]
-       $CMDSTASH_ARGZERO chain [-vxCh] -d DELIM \\
-                COMMAND [ARGS...] [DELIM COMMAND [ARGS...]]...
+usage: $CMDSTASH_ARGZERO chain [-vxC]          COMMAND [COMMAND...]
+       $CMDSTASH_ARGZERO chain [-vxC] -d DELIM COMMAND [ARGS...] [DELIM COMMAND [ARGS...]]...
+       $CMDSTASH_ARGZERO chain -h
 
 invoke commands in sequence
 
 options:  -v        be verbose and print the invoked commands
-          -d DELIM  specify a special delimiter value to allow
-                    arguments on chained commands
+          -d DELIM  specify a delimiter value to allow args on commands
           -x        enable xtrace on the invoked commands (implies -v)
-          -C        continue sequence even after failed commands
-                    (use with caution!)
+          -C        continue: do not stop sequence upon failed commands
           -h        display this help and exit"; exit 0;;
-		-C) die "TBD";;
+		-C) ___C='say';;
 		-[d]?*) set -- "${___o%"${___o#??}"}" "${___o#??}" "$@" ;;
 		-[vxCh]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 		--)  break ;;
@@ -227,10 +226,10 @@ options:  -v        be verbose and print the invoked commands
 	if [ ! "$___D" ]; then
 		while [ "${1+x}" ]; do
 			[ "$___v" ] && say "invoking command: $1"
-			invoke ${___X:+-x} -- "$1" || die "command returned $?: $1"
+			invoke ${___X:+-x} -- "$1" || "$___C" "command returned $?: $1"
 			shift
 		done
-		unset ___d ___D ___v ___X; return 0
+		unset ___d ___D ___v ___X ___C; return 0
 	fi
 	# With command delimiter defined:
 	___i=1; ___j=1; ___k=''; ___l=''
@@ -246,7 +245,7 @@ options:  -v        be verbose and print the invoked commands
 						set -- "$(($1+1))" "$2"
 					done)"
 				[ "$___v" ] && eval "say \"invoking command:\"$___l"
-				eval "invoke ${___X:+-x} --$___l || die \"command returned \$?:\"$___l"
+				eval "invoke ${___X:+-x} -- $___l || $___C \"command returned \$?:\" $___l"
 			fi
 			___i="$((___j+1))"
 		fi
@@ -261,9 +260,9 @@ options:  -v        be verbose and print the invoked commands
 				set -- "$(($1+1))" "$2"
 			done)"
 		[ "$___v" ] && eval "say \"invoking command:\"$___l"
-		eval "invoke ${___X:+-x} --$___l || die \"command returned \$?:\"$___l"
+		eval "invoke ${___X:+-x} -- $___l || $___C \"command returned \$?:\" $___l"
 	fi
-	unset ___d ___D ___v ___X ___i ___j ___k ___l
+	unset ___d ___D ___v ___X ___C ___i ___j ___k ___l
 }
 
 # Help and usage description listing all the available cmdstash commands:
@@ -356,11 +355,11 @@ case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=
 	''|0);;
 	*) __CMDSTASH_CMDS="$(printf '%s\n' "$__CMDSTASH_CMDS" | sed -n "
 /^>/ { i\\
-chain chain $CMDSTASH_CHAINALIAS\\
+chain chain ${CMDSTASH_CHAINALIAS:-}\\
 	invoke commands in sequence  (use \`chain -h' for more information)
 b cont; }
 \$ { a\\
-chain chain $CMDSTASH_CHAINALIAS\\
+chain chain ${CMDSTASH_CHAINALIAS:-}\\
 	invoke commands in sequence  (use \`chain -h' for more information)
 b cont; }
 p; b; :cont { p; n; b cont; }")";;
