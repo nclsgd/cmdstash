@@ -294,7 +294,6 @@ s/^>/    > /;
 s/^\t/        /;' | sed '/^    > /!{ N; s/\n    > /\n\n    > /; }'
 	ABOUT="$(trim "${ABOUT:-}")"
 	if [ "$ABOUT" ]; then printf '\n%s\n' "$ABOUT"; fi
-	#	printf "\n\n=======\n\n%s\n" "$__CMDSTASH_CMDS"
 }
 
 cmdstash_bash_completion_script() {
