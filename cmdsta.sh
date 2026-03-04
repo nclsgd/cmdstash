@@ -306,31 +306,32 @@ cmdstash: the completion script must be evaluated by the shell, try running:
 	# shellcheck disable=SC2016
 	printf '%s\n' '__cmdstash_scripts_completion() {
 	local _script="${COMP_WORDS[0]}"
-	if ! [[ -f "$_script" && -x "$_script" && "$_script" =~ .+/.+ &&
-	        -n "$(sed "/^#!/p;q" <"$_script")" && -n "$(sed -n <"$_script" \
-"s/^__CMDSTASH__//;t a;b;:a s/^[      ]*\$//;t b;s/^[  ][      ]*#//;t b;b;:b =;q")"
-	]]; then
-		return 1
-	fi
+	[[ -f "$_script" &&\
+	   -x "$_script" &&\
+	   "$_script" =~ .+/.+ &&\
+	   -n "$(sed "/^#!/p;q" <"$_script")" &&\
+	   -n "$(sed -n <"$_script" "s/^__CMDSTASH__//; t a; b;
+:a s/^[ 	]*\$//; t b; s/^[ 	][ 	]*#//; t b; b; :b =; q")" ]] || return 1
 	case "${COMP_WORDS[COMP_CWORD]}" in
-		/*|./*|../*) mapfile -t COMPREPLY <<<"$(compgen -f \
--- "${COMP_WORDS[COMP_CWORD]}")";;
-		*) local __cmds
-__cmds="$(CMDSTASH_COMPLETION=bash "$_script" -h 2>/dev/null | sed \
-"1,/^commands:\$/d; /^\$/,\$d; /^    */d; s/^  //; s/ .*//;")"
-[[ "$__cmds" ]] && mapfile -t COMPREPLY <<<"$(compgen \
--W "-h $__cmds" -- "${COMP_WORDS[COMP_CWORD]}")"
+		/*|./*|../*)
+			mapfile -t COMPREPLY <<<"$(compgen -f -- "${COMP_WORDS[COMP_CWORD]}")";;
+		*)
+			local __cmds
+			__cmds="$(CMDSTASH_COMPLETION=bash "$_script" "-\$")"
+			[[ "$__cmds" ]] && mapfile -t COMPREPLY <<<"$(compgen \
+				-W "-h $__cmds" -- "${COMP_WORDS[COMP_CWORD]}")"
 	esac
 }
 _cmdstash_complete() {
-	local _c; for _c; do
-		case "$_c" in
-			""|*[!a-zA-Z0-9_.+-]*) echo >&2 \
-"_cmdstash_complete: skipping unsupported script basename: $_c" ||: ;;
-			*) __cmdstash_completions+=("$_c")
-complete -F __cmdstash_scripts_completion -- "$_c" "./$_c" ;;
-		esac
-	done
+	local _c; for _c; do case "$_c" in
+		""|*[!a-zA-Z0-9_.+-]*)
+			echo >&2 "_cmdstash_complete: skipping unsupported script basename: $_c" ||:
+			;;
+		*)
+			__cmdstash_completions+=("$_c")
+			complete -F __cmdstash_scripts_completion -- "$_c" "./$_c"
+			;;
+	esac; done
 }
 _cmdstash_remove_completions() {
 	local _c; for _c in "${__cmdstash_completions[@]}"; do
@@ -389,7 +390,8 @@ while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 	-x) ___x=x ;;
 	-h) cmdstash_usage; exit "$?" ;;
 	-c) cmdstash_bash_completion_script; exit "$?" ;;
-	-[xhc]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
+	-\$) die "TODO: fix completion mechanism";;
+	-[xhc\$]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 	--)  break ;;
 	-?*) die "cmdstash: unknown option ${___o%"${___o#??}"}" ;;
 	*)   set -- "$___o" "$@"; break ;;
