@@ -151,7 +151,7 @@ _cmdstash_CMDSECTION() {
 
 # Evaluate all the command definitions in the parent script:
 eval "$(cd "$CMDSTASH_USERWORKDIR" && sed -n <"$CMDSTASH_ARGZERO" \
-'s/^__CMDSTASH__//;t a;b;:a /^[ 	]*$/bb;/^[ 	][ 	]*#/bb;b;:b {n;p;bb;}')"
+'s/^__CMDSTASH__//;t a;b;:a /^[[:blank:]]*$/bb;/^[[:blank:]][[:blank:]]*#/bb;b;:b {n;p;bb;}')"
 
 # Invoke another command from the cmdstash script (potentially wrapped by a
 # function or command provided with the `-w' option):
@@ -279,18 +279,17 @@ options:   -h   display this help and exit
 			printf '%s\n' "no commands defined or missing \`__CMDSTASH__' marker line"
 			return
 	esac
-	printf '%s\n' "commands:"
-	printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d; /^$/d;
-/^[^	>]/{
-	s/^[^ ]* //; s/ /|/; s/ /||/g;
-	s/|/                                                  /;
-	/ /s/[^ ][^ ]*$/(&)/;
-	s/^\(..................................................\)  */\1  /;
-	/^..................................................[^ ]/s/  */  /;
-	s/||/, /g; s/^/  /;
-}
-s/^>/    > /;
-s/^\t/        /;' | sed '/^    > /!{ N; s/\n    > /\n\n    > /; }'
+	printf '%s\n' "commands (and aliases):"
+	printf '%s\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d;
+/^>/ { s/^>/\n    > /p; :H { n; s/^>/    > /p; t H; } }
+s/^\t/        /p; t;
+s/^[^ ]* //; s/ /|/; s/ /||/g;
+s/|/                                                  /;
+/ /s/[^ ][^ ]*$/(&)/;
+s/^\(..................................................\)  */\1  /;
+/^..................................................[^ ]/s/  */  /;
+s/||/, /g;
+s/^/  /p;'
 	ABOUT="$(trim "${ABOUT:-}")"
 	if [ "$ABOUT" ]; then printf '\n%s\n' "$ABOUT"; fi
 }
@@ -310,7 +309,7 @@ cmdstash: the completion script must be evaluated by the shell, try running:
 	   "$_script" =~ .+/.+ &&\
 	   -n "$(sed "/^#!/p;q" <"$_script")" &&\
 	   -n "$(sed -n <"$_script" "s/^__CMDSTASH__//; t a; b;
-:a s/^[ 	]*\$//; t b; s/^[ 	][ 	]*#//; t b; b; :b =; q")" ]] || return 1
+:a s/^[[:blank:]]*\$//; t b; s/^[[:blank:]][[:blank:]]*#//; t b; b; :b =; q")" ]] || return 1
 	case "${COMP_WORDS[COMP_CWORD]}" in
 		/*|./*|../*)
 			mapfile -t COMPREPLY <<<"$(compgen -f -- "${COMP_WORDS[COMP_CWORD]}")";;
@@ -407,7 +406,7 @@ case "$1" in
 	*) ___v="$1";;
 esac
 printf '%s\n\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d; /^>/d;
-/^[^	]/{ s/$/ /; '"/ $___v /"'{
+/^[^[:blank:]]/{ s/$/ /; '"/ $___v /"'{
 s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t hlp; s/\n.*//; p
 }; }; b; :hlp p; n; s/^\t//; t hlp' || die
 )" || exit 1
