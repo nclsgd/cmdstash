@@ -348,6 +348,8 @@ case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 esac
 
 # Inject the chain command definition:
+[ "${CMDSTASH_NOCHAIN:-}" ] || {
+: "${CMDSTASH_CHAINALIAS=ch}"  # ch as the default alias to the chain cmd
 case " ${CMDSTASH_CHAINALIAS:-}" in *[!" "a-zA-Z0-9_.:@+-]*|*" "-*) \
 die "cmdstash: invalid chain command alias definition: $CMDSTASH_CHAINALIAS";; esac
 case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
@@ -363,6 +365,7 @@ chain chain ${CMDSTASH_CHAINALIAS:-}\\
 b cont; }
 p; b; :cont { p; n; b cont; }")";;
 esac
+}
 
 readonly __CMDSTASH_CMDS
 unset __CMDSTASH_CURRENTSECTION
