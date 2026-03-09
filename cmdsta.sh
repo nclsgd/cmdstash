@@ -211,7 +211,7 @@ invoke commands in sequence
 
 options:  -v        be verbose and print the invoked commands
           -d DELIM  specify a delimiter value to allow arguments on chained
-                    commands  [tip: commas \`,' may be good delimiters]
+                    commands  [tip: commas \`,' usually make good delimiters]
           -x        enable xtrace on the invoked commands  [implies -v]
           -C        continue: do not stop sequence upon failed commands
           -h        display this help and exit"; exit 0;;
@@ -349,7 +349,7 @@ esac
 
 # Inject the chain command definition:
 [ "${CMDSTASH_NOCHAIN:-}" ] || {
-: "${CMDSTASH_CHAINALIAS=ch}"  # ch as the default alias to the chain cmd
+: "${CMDSTASH_CHAINALIAS=ch}"  # default alias to the chain command
 case " ${CMDSTASH_CHAINALIAS:-}" in *[!" "a-zA-Z0-9_.:@+-]*|*" "-*) \
 die "cmdstash: invalid chain command alias definition: $CMDSTASH_CHAINALIAS";; esac
 case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
