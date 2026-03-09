@@ -91,7 +91,6 @@ case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 	readonly -f say die trim quote rel2uwd ;;
 esac
 
-__CMDSTASH_SELF="${CMDSTASH_ARGZERO##*/}"
 __CMDSTASH_CMDS='# cmdstash commands defintion table, DO NOT EDIT!'
 __CMDSTASH_CURRENTSECTION=''
 unset ABOUT
@@ -275,11 +274,10 @@ options:   -h   display this help and exit
            -x   enable xtrace during command invocation
            -c   generate a Bash completion script and exit
 " || return 1
-	case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
-		''|0)
-			printf '%s\n' "no commands defined or missing \`__CMDSTASH__' marker line"
-			return
-	esac
+	[ "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^[#>[:blank:]]/d; /^$/d')" ] || {
+		printf '%s\n' "no commands defined or missing \`__CMDSTASH__' marker line"
+		return
+	}
 	printf '%s\n' "commands (and aliases):"
 	printf '%s\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d;
 /^>/ { s/^>/\n    > /p; :H { n; s/^>/    > /p; t H; } }
@@ -352,9 +350,8 @@ esac
 : "${CMDSTASH_CHAINALIAS=ch}"  # default alias to the chain command
 case " ${CMDSTASH_CHAINALIAS:-}" in *[!" "a-zA-Z0-9_.:@+-]*|*" "-*) \
 die "cmdstash: invalid chain command alias definition: $CMDSTASH_CHAINALIAS";; esac
-case "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^#/d;/^\t/d;/^$/d' | sed -n '$=')" in
-	''|0);;
-	*) __CMDSTASH_CMDS="$(printf '%s\n' "$__CMDSTASH_CMDS" | sed -n "
+[ "$(printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^[#>[:blank:]]/d; /^$/d')" ] &&\
+	__CMDSTASH_CMDS="$(printf '%s\n' "$__CMDSTASH_CMDS" | sed -n "
 /^>/ { i\\
 chain chain ${CMDSTASH_CHAINALIAS:-}\\
 	invoke commands in sequence  (use \`chain -h' for more information)
@@ -363,8 +360,7 @@ b cont; }
 chain chain ${CMDSTASH_CHAINALIAS:-}\\
 	invoke commands in sequence  (use \`chain -h' for more information)
 b cont; }
-p; b; :cont { p; n; b cont; }")";;
-esac
+p; b; :cont { p; n; b cont; }")"
 }
 
 readonly __CMDSTASH_CMDS
@@ -425,7 +421,7 @@ readonly CMD CMDFUNC CMDHELP
 esac
 
 # Append the command name to the self contaxtual value for say/die:
-__CMDSTASH_SELF="${CMDSTASH_ARGZERO##*/} $CMD"
+__CMDSTASH_SELF="$CMDSTASH_ARGZERO $CMD"
 
 # That's it, handle the xtrace option (if asked), run the command and exit:
 if [ "$___x" ]; then unset ___x; set -x; else unset ___x; fi
