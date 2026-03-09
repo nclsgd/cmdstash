@@ -409,7 +409,6 @@ s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t hlp; s/\n.*//; p
 )" || exit 1
 [ "$___c" ] || die "unknown command: $1"
 CMDFUNC="${___c%% *}"; CMD="${___c#"$CMDFUNC "}"; CMD="${CMD%%" "*}";
-# shellcheck disable=SC2034  # CMDHELP is to be used by cmdstash scripts
 CMDHELP="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
 # shellcheck disable=SC2034  # CMDHELP is unused here but left for users
