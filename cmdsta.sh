@@ -418,6 +418,13 @@ CMDHELP="${___c#"$CMDFUNC $CMD "}"
 unset ___c; shift
 # shellcheck disable=SC2034  # CMDHELP is unused here but left for users
 readonly CMD CMDFUNC CMDHELP
+
+# Only allow commands to be shell functions and complains if not so:
+[ "${CMDSTASH_NOCHECKCMDFUNC:-}" ] || case "$(command -v "$CMDFUNC" 2>/dev/null ||:)" in
+	''|/*) die "cmdstash: $CMD: missing shell function: $CMDFUNC";;
+esac
+
+# Append the command name to the self contaxtual value for say/die:
 __CMDSTASH_SELF="${CMDSTASH_ARGZERO##*/} $CMD"
 
 # That's it, handle the xtrace option (if asked), run the command and exit:
