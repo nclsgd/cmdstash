@@ -210,8 +210,9 @@ usage: $CMDSTASH_ARGZERO chain [-vxC]          COMMAND [COMMAND...]
 invoke commands in sequence
 
 options:  -v        be verbose and print the invoked commands
-          -d DELIM  specify a delimiter value to allow args on commands
-          -x        enable xtrace on the invoked commands (implies -v)
+          -d DELIM  specify a delimiter value to allow arguments on chained
+                    commands  [tip: commas \`,' may be good delimiters]
+          -x        enable xtrace on the invoked commands  [implies -v]
           -C        continue: do not stop sequence upon failed commands
           -h        display this help and exit"; exit 0;;
 		-C) ___C='say';;
