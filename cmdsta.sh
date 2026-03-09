@@ -368,10 +368,11 @@ unset __CMDSTASH_CURRENTSECTION
 unset -f CMD _cmdstash_CMD CMDSECTION _cmdstash_CMDSECTION
 
 # Check there is no duplicate commands
-___v="$(
-	printf '%s\n' "$__CMDSTASH_CMDS" \
-	| sed '/^#/d; /^\t/d; /^$/d; s/^[^ ]* //;' \
-	| sed ':a; N; $!ba; s/\n/ /g; s/  */ /g; s/^  *//; s/  *$//;')" || die
+# shellcheck disable=SC2016
+___v="$(printf '\n%s\n' "$__CMDSTASH_CMDS" | sed -n '
+:B $bE; s/\n[#>[:blank:]].*//; tB; s/\n[^ ]*  *\(.*\)/\1 /; N; bB;
+:E      s/\n[#>[:blank:]].*//;     s/\n[^ ]*  *\(.*\)/\1 /;
+s/  */ /g; s/ *$//; p;')" || die
 while [ "${___v#* }" != "${___v%% *}" ]; do
 	case " ${___v#* } " in *" ${___v%% *} "*)
 		die "cmdstash: duplicate definition for command or alias: ${___v%% *}";;
@@ -397,15 +398,15 @@ CMDSTASH_OPTS="${___x:+-x}"
 readonly CMDSTASH_OPTS
 
 ___c="$(
-case "$1" in
-	''|-*|*[!a-zA-Z0-9_.:@+-]*) die "invalid command name: $1";;
-	*.*) ___v="$(printf '%s' "$1" | sed 's/\./\\./g')" || die;;
-	*) ___v="$1";;
-esac
-printf '%s\n\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d; /^>/d;
-/^[^[:blank:]]/{ s/$/ /; '"/ $___v /"'{
-s/^\([^ ]*  *[^ ]*\).*/\1 /; N; s/\n\t//; t hlp; s/\n.*//; p
-}; }; b; :hlp p; n; s/^\t//; t hlp' || die
+	case "$1" in
+		''|-*|*[!a-zA-Z0-9_.:@+-]*) die "invalid command name: $1";;
+		*.*) ___v="$(printf '%s' "$1" | sed 's/\./\\./g')" || die;;
+		*) ___v="$1";;
+	esac
+	# shellcheck disable=SC2016
+	printf '%s\n' "$__CMDSTASH_CMDS" | sed -n '/^[#>[:blank:]]/d; /^$/d;
+s/$/ /; / '"$___v"' /!b; s/^\([^ ]*  *[^ ]*\).*/\1/; ${p; q;}; N;
+s/\n\t/ /p; t hlp; s/\n.*//; p; q; :hlp n; s/^\t//p; t hlp; q' || die
 )" || exit 1
 [ "$___c" ] || die "unknown command: $1"
 CMDFUNC="${___c%% *}"; CMD="${___c#"$CMDFUNC "}"; CMD="${CMD%%" "*}";
