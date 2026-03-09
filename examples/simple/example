@@ -11,9 +11,7 @@ readonly UWD="${PWD:?}"; cd "${0%"${0##*/}"}."
 CMDSTASH_USERWORKDIR="$UWD"; . ./cmdsta.sh
 __CMDSTASH__  # here begins the cmdstash script, do not edit this marker line
 
-CMDSTASH_CHAINALIAS=ch
-
-# Just a silly command to expose how cmdstash works
+# Just a simple command to expose how cmdstash works
 CMD helloworld hw -- 'say hello world'
 helloworld() {
 	echo 'Hello world!'
