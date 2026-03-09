@@ -420,6 +420,7 @@ unset ___c; shift
 readonly CMD CMDFUNC CMDHELP
 __CMDSTASH_SELF="${CMDSTASH_ARGZERO##*/} $CMD"
 
+# That's it, handle the xtrace option (if asked), run the command and exit:
 if [ "$___x" ]; then unset ___x; set -x; else unset ___x; fi
 "$CMDFUNC" "$@"
 exit "$?"
