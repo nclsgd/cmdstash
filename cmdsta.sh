@@ -38,7 +38,7 @@ trim() {
 }
 
 # Ensure sed is available via PATH resolution:
-[ "${CMDSTASH_DONOTCHECKSED:-}" ] || case "$(command -v sed)" in \
+[ "${CMDSTASH_NOSEDCHECK:-}" ] || case "$(command -v sed)" in \
 /*);; *) die "cmdstash: \`sed' seems unfound in PATH";; esac
 
 # Quote arguments following POSIX shell escaping rules:
@@ -92,7 +92,7 @@ case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 esac
 
 __CMDSTASH_CMDS='# cmdstash commands defintion table, DO NOT EDIT!'
-__CMDSTASH_CURRENTSECTION=''
+__CMDSTASH_CURSECTION=''
 unset ABOUT
 
 # Declaring CMD (commands):
@@ -116,9 +116,10 @@ _cmdstash_CMD() {
 			[ "$(eval 2>/dev/null "$___v(){ echo ok;}&& $___v")" = ok ] || die \
 				"CMD: accepted command name but illegal function name: $___v"
 	esac
-	[ "${__CMDSTASH_CURRENTSECTION:-}" ] && {
+	[ "${__CMDSTASH_CURSECTION:-}" ] && {
 		__CMDSTASH_CMDS="$__CMDSTASH_CMDS
-$__CMDSTASH_CURRENTSECTION"; __CMDSTASH_CURRENTSECTION=''
+$__CMDSTASH_CURSECTION"
+		__CMDSTASH_CURSECTION=''
 	}
 	__CMDSTASH_CMDS="$__CMDSTASH_CMDS
 $___v"  # no leading whitespace here!
@@ -144,7 +145,7 @@ _cmdstash_CMDSECTION() {
 		-?*) die "CMDSECTION: unknown option ${___o%"${___o#??}"}" ;;
 		*)   set -- "$___o" "$@"; break ;;
 	esac; done; unset ___o
-	__CMDSTASH_CURRENTSECTION="$(trim "$(printf '%s ' "$@")" | sed \
+	__CMDSTASH_CURSECTION="$(trim "$(printf '%s ' "$@")" | sed \
 		'/^[[:space:]]*$/d;s/^/>/')"
 }
 
@@ -364,7 +365,7 @@ p; b; :cont { p; n; b cont; }")"
 }
 
 readonly __CMDSTASH_CMDS
-unset __CMDSTASH_CURRENTSECTION
+unset __CMDSTASH_CURSECTION
 unset -f CMD _cmdstash_CMD CMDSECTION _cmdstash_CMDSECTION
 
 # Check there is no duplicate commands
@@ -419,7 +420,7 @@ unset ___c; shift
 readonly CMD CMDFUNC CMDHELP
 
 # Only allow commands to be shell functions and complains if not so:
-[ "${CMDSTASH_NOCHECKCMDFUNC:-}" ] || case "$(command -v "$CMDFUNC" 2>/dev/null ||:)" in
+[ "${CMDSTASH_NOCMDFUNCCHECK:-}" ] || case "$(command -v "$CMDFUNC" 2>/dev/null ||:)" in
 	''|/*) die "cmdstash: $CMD: missing shell function: $CMDFUNC";;
 esac
 
