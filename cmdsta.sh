@@ -314,7 +314,7 @@ cmdstash: the completion script must be evaluated by the shell, try running:
 			mapfile -t COMPREPLY <<<"$(compgen -f -- "${COMP_WORDS[COMP_CWORD]}")";;
 		*)
 			local __cmds
-			__cmds="$(CMDSTASH_COMPLETION=bash "$_script" "-\$")"
+			__cmds="$(CMDSTASH_COMPLETION=bash "$_script" -\$)"
 			[[ "$__cmds" ]] && mapfile -t COMPREPLY <<<"$(compgen \
 				-W "-h $__cmds" -- "${COMP_WORDS[COMP_CWORD]}")"
 	esac
@@ -386,7 +386,10 @@ while [ "${1+x}" ]; do ___o="$1"; shift; case "$___o" in
 	-x) ___x=x ;;
 	-h) cmdstash_usage; exit "$?" ;;
 	-c) cmdstash_bash_completion_script; exit "$?" ;;
-	-\$) die "TODO: fix completion mechanism";;
+	-\$) printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^[#>[:blank:]]/d; /^$/d;
+s/^[^ ]*  *//; s/ .*//;'; exit "$?";;
+#	-\&) printf '%s\n' "$__CMDSTASH_CMDS" | sed '/^[#>[:blank:]]/d; /^$/d;
+#s/^[^ ]*  *//; s/  */ /g; s/ *$//;'; exit "$?";;
 	-[xhc\$]?*) set -- "${___o%"${___o#??}"}" "-${___o#??}" "$@" ;;
 	--)  break ;;
 	-?*) die "cmdstash: unknown option ${___o%"${___o#??}"}" ;;
