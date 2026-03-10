@@ -1,6 +1,3 @@
-* Ensure that the variables expected to be word expanded are marked as such for
-  zsh (i.e. zsh arrays)
-
 * Version __cmdstash_* Bash completion functions
 
 * Define a hidden `-!' option to get the list of commands in a clean manner to

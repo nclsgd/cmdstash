@@ -83,13 +83,28 @@ if [ "$(eval 2>/dev/null \
 '_f(){ echo 1;}; readonly>&2 -f _f||:; _f(){ echo 2;}||:; _f||:')" = 1 ]; then
 	CMDSTASH_SHELLFEAT="$CMDSTASH_SHELLFEAT${CMDSTASH_SHELLFEAT:+:}readonlyfuncs"
 fi
-readonly CMDSTASH_SHELL CMDSTASH_SHELLFEAT
+# Probe if the shell does not word-split the same way POSIX sh does (zsh):
+# shellcheck disable=SC2086  # word splitting is expected here
+case "$(___v="a b"; set -- $___v; echo $#)" in
+	2) :;;
+	1) CMDSTASH_SHELLFEAT="$CMDSTASH_SHELLFEAT${CMDSTASH_SHELLFEAT:+:}zshnowordsplit";;
+	*) die "unexpected result while probing for shell word splitting behavior";;
+esac
+readonly CMDSTASH_SHELLFEAT
 
 # Mark the basic utility functions as readonly if supported:
 case ":$CMDSTASH_SHELLFEAT:" in *:readonlyfuncs:*)
 	# shellcheck disable=SC3045  # `readonly -f' support is validated above
 	readonly -f say die trim quote rel2uwd ;;
 esac
+
+# If "zshnowordsplit", treat CMDSTASH_SHELL as array for auto word-split:
+case ":$CMDSTASH_SHELLFEAT:" in *:zshnowordsplit:*)
+	eval "CMDSTASH_SHELL=($CMDSTASH_SHELL)";;
+esac
+
+# Freeze CMDSTASH_SHELL:
+readonly CMDSTASH_SHELL
 
 __CMDSTASH_CMDS='# cmdstash commands defintion table, DO NOT EDIT!'
 __CMDSTASH_CURSECTION=''
@@ -399,6 +414,13 @@ esac; done; unset ___o
 [ "${1+x}" ] || { cmdstash_usage>&2 ||:; exit 1; }
 
 CMDSTASH_OPTS="${___x:+-x}"
+
+# If "zshnowordsplit", treat CMDSTASH_OPTS as array for auto word-split:
+case ":$CMDSTASH_SHELLFEAT:" in *:zshnowordsplit:*)
+	eval "CMDSTASH_OPTS=($CMDSTASH_OPTS)";;
+esac
+
+# Freeze CMDSTASH_OPTS:
 readonly CMDSTASH_OPTS
 
 ___c="$(
