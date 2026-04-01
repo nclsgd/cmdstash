@@ -296,7 +296,7 @@ options:   -h   display this help and exit
 	}
 	printf '%s\n' "commands (and aliases):"
 	printf '%s\n' "$__CMDSTASH_CMDS" | sed -n '/^#/d; /^$/d;
-/^>/ { s/^>/\n    > /p; :H { n; s/^>/    > /p; t H; } }
+/^>/ { s/^>/\n   >> /p; :H { n; s/^>/   >> /p; t H; } }
 s/^\t/        /p; t;
 s/^[^ ]* //; s/ /|/; s/ /||/g;
 s/|/                                                  /;
